@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Debugwarts — House Allocation System</title>
+<style>
+  @font-face {
+    font-family: 'Alagard';
+    src: url('alagard/alagard.ttf') format('truetype'),
+         url('alagard/alagard.woff') format('woff'),
+         url('alagard/alagard.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+  }
+</style>
+
+<!-- ============================================================
+  GIF ASSET CONFIGURATION
+  Replace any null with a file path or URL string.
+  null = built-in CSS/SVG fallback (no file needed).
+  ============================================================ -->
+<script>
+const ASSETS = {
+  // 🎩 Sorting Hat — animated GIF (plays while talking)
+  hat:      "assets/hat.gif",
+  // 🎩 Sorting Hat — idle/static image (shows when not talking)
+  hatIdle:  "assets/hat-idle.png",   // null = keeps hat.gif
+  // 🔊 Hat voice SFX — loops while text types
+  hatVoice: "assets/hat-voice.mp3",  // null = no sound
+  // 🎵 Background music — loops throughout the experience
+  bgMusic:  "assets/bg-music.mp3",   // null = no background music
+
+  // 🌌 Screen backgrounds (null = CSS starfield)
+  bgStart:    null,
+  bgQuestion: null,
+  bgResult:   null,
+
+  // ✨ Floating particle GIF (null = CSS dots)
+  particle: null,
+
+  // 💫 Camera frame overlay (null = CSS glow border)
+  cameraOverlay: "assets/camera-overlay.png",
+  // 🔮 Camera corner GIF — mirrored to all 4 corners (null = CSS brackets)
+  cameraCorner: null,
+  // 🌟 Sparkle GIF inside camera frame (null = CSS glyphs)
+  sparkle: null,
+
+  // 🎆 Result burst GIF behind house name (null = CSS glow)
+  resultReveal: null,
+
+  // 🏰 House crest images
+  houseGryffindor: "assets/gryffindor-crest.png",
+  houseRavenclaw:  "assets/ravenclaw-crest.png",
+  houseHufflepuff: "assets/hufflepuff-crest.png",
+  houseSlytherin:  "assets/slytherin-crest.png",  
+  houseLOOP:       null,
+
+  // ✦ Start screen decoration GIFs
+  startLeft: null, startRight: null, startTop: null,
+
+  // 📐 Size / position overrides
+  hatWidth:         "62%",
+  hatOffsetTop:     "0px",
+  particleSize:     "20px",
+  sparkleSize:      "16px",
+  cornerSize:       "44px",
+  resultRevealSize: "320px",
+
+  // 🎲 LOOP easter egg — probability 0–1 (0.08 = 8% chance)
+  loopChance: 0.10,
+};
+</script>
+<!-- END ASSET CONFIG -->
+
+<style>
+/* ══════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════ */
+:root {
+  --gold:            #f0c040;
+  --gold-dim:        #a07820;
+  --gold-pale:       #fff8dc;
+  --bg-deep:         #05030e;
+  --bg-panel:        rgba(12,8,28,.92);
+  --purple:          #7c3aed;
+  --purple-bright:   #a855f7;
+  --cyan:            #22d3ee;
+  --gryffindor:      #c0392b;  --gryffindor-glow: #ff6b4a;
+  --ravenclaw:       #1a6fa8;  --ravenclaw-glow:  #4db8ff;
+  --hufflepuff:      #e6a817;  --hufflepuff-glow: #ffd966;
+  --slytherin:       #1a7a4a;  --slytherin-glow:  #4dff9a;
+  --loop-green:      #00ff88;  --loop-glow:       rgba(0,255,136,.5);
+  --text-main:       #e8dfc8;
+  --text-dim:        #9d8f7a;
+  --border-magic:    rgba(168,85,247,.35);
+  --radius:          14px;
+  --hat-top:         0px;
+  --hat-width:       62%;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+img, video { image-rendering:pixelated; image-rendering:crisp-edges; }
+html, body {
+  width:100%; height:100%;
+  background:var(--bg-deep); color:var(--text-main);
+  font-family:'Alagard', 'VT323', monospace;
+  overflow-x:hidden; overflow-y:auto;
+}
+
+/* ══════════════════════════════════════════
+   STARFIELD
+══════════════════════════════════════════ */
+#starfield { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.star {
+  position:absolute; border-radius:50%; background:#fff;
+  animation:twinkle var(--dur,3s) ease-in-out infinite; opacity:0;
+}
+@keyframes twinkle {
+  0%,100%{ opacity:0; transform:scale(.5); }
+  50%    { opacity:var(--op,.8); transform:scale(1); }
+}
+
+/* ══════════════════════════════════════════
+   GIF BACKGROUND LAYERS
+══════════════════════════════════════════ */
+.bg-layer {
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background-size:cover; background-position:center; display:none;
+}
+
+/* ══════════════════════════════════════════
+   PARTICLES
+══════════════════════════════════════════ */
+.gif-particle, .dot-particle {
+  position:fixed; pointer-events:none; z-index:2;
+  animation:floatUp var(--dur,7s) ease-in infinite;
+  animation-delay:var(--del,0s); opacity:0;
+}
+.dot-particle { width:4px; height:4px; border-radius:50%; }
+@keyframes floatUp {
+  0%  { opacity:0; transform:translateY(0) translateX(0) scale(.5); }
+  20% { opacity:1; }
+  80% { opacity:.6; }
+  100%{ opacity:0; transform:translateY(-120vh) translateX(var(--dx,30px)) scale(1.5); }
+}
+
+/* ══════════════════════════════════════════
+   SCREENS
+══════════════════════════════════════════ */
+.screen {
+  position:relative; z-index:10; min-height:100vh;
+  display:none; flex-direction:column;
+  align-items:center; justify-content:flex-start;
+  padding:20px 16px 40px;
+}
+.screen.active { display:flex; }
+
+/* ══════════════════════════════════════════
+   START SCREEN
+══════════════════════════════════════════ */
+#start-screen { justify-content:center; text-align:center; gap:0; }
+
+.start-deco-left, .start-deco-right {
+  position:absolute; top:50%; transform:translateY(-50%);
+  pointer-events:none; display:none; max-height:60vh; z-index:2;
+}
+.start-deco-left { left:0; } .start-deco-right { right:0; }
+.start-deco-top  { display:none; margin-bottom:16px; max-width:320px; }
+
+.crest-row {
+  display:flex; gap:18px; justify-content:center; margin-bottom:28px;
+  animation:fadeDown 1s ease both .2s;
+}
+.crest {
+  width:70px; height:70px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:26px; border:2px solid rgba(255,255,255,.08);
+  box-shadow:0 0 18px var(--crest-color,#fff);
+  animation:pulseCrest 3s ease-in-out infinite;
+  animation-delay:var(--cd,0s); overflow:hidden;
+  background:transparent;
+}
+.crest img { width:100%; height:100%; object-fit:contain; border-radius:0; }
+@keyframes pulseCrest {
+  0%,100%{ box-shadow:0 0 12px var(--crest-color); }
+  50%    { box-shadow:0 0 28px var(--crest-color),0 0 50px var(--crest-color); }
+}
+
+.title-wrap { animation:fadeDown 1s ease both .5s; margin-bottom:10px; }
+.title-main {
+  font-family:'Alagard', 'VT323', monospace;
+  font-size:clamp(32px,7vw,60px); font-weight:900;
+  background:linear-gradient(135deg,#f0c040,#fff9e0,#a855f7,#22d3ee);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text; line-height:1.1;
+  filter:drop-shadow(0 0 20px rgba(168,85,247,.5));
+}
+.title-sub {
+  font-family:'Alagard', 'VT323', monospace;
+  font-size:clamp(16px,3vw,22px);
+  letter-spacing:4px; color:var(--gold-dim); margin-top:8px;
+}
+
+.divider-magic {
+  width:240px; height:1px; margin:22px auto;
+  background:linear-gradient(90deg,transparent,var(--purple-bright),var(--gold),var(--purple-bright),transparent);
+  position:relative; animation:fadeDown 1s ease both .8s;
+}
+.divider-magic::after {
+  content:'*'; position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  color:var(--gold); font-size:14px;
+  background:var(--bg-deep); padding:0 8px;
+}
+.tagline {
+  font-family:'Alagard', 'VT323', monospace; font-style:normal; font-size:clamp(18px,4vw,22px);
+  color:var(--text-dim); margin-bottom:32px; max-width:380px; line-height:1.6;
+  animation:fadeDown 1s ease both 1s;
+}
+
+/* ══════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════ */
+.btn-magic {
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  padding:16px 42px; font-family:'Alagard', 'VT323', monospace;
+  font-size:clamp(14px,3vw,17px); font-weight:700; letter-spacing:2px;
+  color:var(--bg-deep);
+  background:linear-gradient(135deg,var(--gold) 0%,#fff4c2 50%,var(--gold) 100%);
+  border:none; border-radius:0; cursor:pointer;
+  position:relative; overflow:hidden; min-width:220px;
+  box-shadow:0 0 30px rgba(240,192,64,.5),0 4px 20px rgba(0,0,0,.5);
+  transition:transform .2s, box-shadow .2s;
+  -webkit-tap-highlight-color:transparent;
+  animation:fadeDown 1s ease both 1.2s;
+}
+.btn-magic::before {
+  content:''; position:absolute; top:-50%; left:-60%;
+  width:30%; height:200%; background:rgba(255,255,255,.4);
+  transform:skewX(-20deg); animation:shimmer 3s ease-in-out infinite;
+}
+@keyframes shimmer { 0%{left:-60%} 100%{left:130%} }
+.btn-magic:hover  { transform:translateY(-3px) scale(1.03); box-shadow:0 0 50px rgba(240,192,64,.7),0 8px 30px rgba(0,0,0,.5); }
+.btn-magic:active { transform:scale(.97); }
+
+.btn-restart {
+  background:linear-gradient(135deg,var(--purple) 0%,#c084fc 50%,var(--purple) 100%);
+  color:#fff; box-shadow:0 0 30px rgba(124,58,237,.5),0 4px 20px rgba(0,0,0,.5);
+  animation:none; /* override the start-screen fadeDown */
+}
+.btn-restart:hover { box-shadow:0 0 50px rgba(168,85,247,.7),0 8px 30px rgba(0,0,0,.5); }
+
+/* ══════════════════════════════════════════
+   QUESTION SCREEN LAYOUT
+══════════════════════════════════════════ */
+#question-screen {
+  gap:0;
+  padding-top:24px;
+  padding-bottom:48px;
+  flex-direction:column;
+  align-items:center;
+}
+
+/* Progress & HUD */
+.score-hud {
+  display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+  width:100%; max-width:480px; animation:fadeDown .5s ease both;
+}
+.hud-item {
+  display:flex; align-items:center; gap:6px; padding:6px 14px;
+  border-radius:30px; border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.4); font-family:'Alagard', 'VT323', monospace;
+  font-size:16px; font-weight:600; letter-spacing:1px; backdrop-filter:blur(8px);
+}
+.hud-dot { width:10px; height:10px; border-radius:50%; background:var(--dot-color); box-shadow:0 0 8px var(--dot-color); }
+.hud-score { color:var(--text-main); }
+
+/* Progress bar strip below camera */
+.q-progress-bar {
+  width:100%; max-width:480px;
+  margin-top:18px; flex-shrink:0;
+  position:relative;
+  display:block;
+  line-height:0;
+}
+/* Back PNG — bottommost layer, sets the size of the whole widget */
+.q-progress-bar-back {
+  width:100%; height:auto; display:block;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  pointer-events:none; user-select:none;
+  position:relative; z-index:1;
+}
+/* Front/frame PNG — topmost layer, absolutely overlaid */
+.q-progress-bar-front {
+  position:absolute; inset:0;
+  width:100%; height:100%; object-fit:fill;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  pointer-events:none; user-select:none;
+  z-index:3;
+}
+/* Fill overlay — sits between back and front PNGs */
+.q-progress-fill-wrap {
+  position:absolute;
+  /* Inset values align to the inner capsule track */
+  top:28%; bottom:28%; left:5%; right:5%;
+  overflow:hidden; border-radius:4px;
+  z-index:2;
+}
+.q-progress-fill {
+  height:100%; background:linear-gradient(90deg,#c8860a,#f0c040,#fff4a0,#f0c040);
+  background-repeat: no-repeat;
+  border-radius:4px; transition:width .6s ease;
+  opacity:0.9;
+}
+.q-number {
+  font-family:'Alagard', 'VT323', monospace; font-size:clamp(14px,3vw,18px); letter-spacing:3px;
+  color:var(--gold-dim); text-transform:uppercase; width:100%; max-width:480px;
+  text-align:center; margin-top:8px; flex-shrink:0;
+  /* Fixed line-height so it never causes reflow */
+  line-height:1.4; height:1.4em; overflow:hidden;
+}
+
+/* ══════════════════════════════════════════
+   CAMERA PANEL
+══════════════════════════════════════════ */
+.camera-panel {
+  width:100%; max-width:400px; position:relative;
+  overflow:visible; padding-top:70px; margin-top:-10px;
+}
+.camera-frame {
+  position:relative; aspect-ratio:4/3; background:#000;
+  border-radius:15px; overflow:hidden;
+  border:none; box-shadow:none;
+  transition:box-shadow .5s ease;
+}
+/* Glow only when Sorting Hat is speaking */
+.camera-frame.talking {
+  box-shadow:0 0 28px rgba(240,192,64,.45), 0 0 6px rgba(240,192,64,.25);
+}
+
+/* PNG frame — positioned over .camera-frame via .camera-panel, not clipped */
+.camera-frame-img {
+  position:absolute; z-index:20;
+  top:70px; left:0; right:0;
+  width:100%; height:auto; aspect-ratio:4/3;
+  object-fit:fill;
+  pointer-events:none; user-select:none;
+}
+
+/* Legacy elements suppressed */
+.magic-circle    { display:none; }
+.camera-gif-overlay { display:none !important; }
+.camera-corner   { display:none !important; }
+.sparkle-gif, .sparkle-css { display:none !important; }
+
+/* Webcam */
+#webcam { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none; }
+.cam-placeholder {
+  width:100%; height:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px;
+  background:linear-gradient(135deg,#0d0820,#1a0a3a);
+  color:var(--text-dim); font-size:14px; text-align:center; padding:20px;
+}
+.cam-placeholder .cam-icon { font-size:38px; opacity:.4; }
+
+/* ══════════════════════════════════════════
+   SORTING HAT OVERLAY
+   Lives in .camera-panel (overflow:visible),
+   NOT inside .camera-frame (overflow:hidden).
+
+   Two image slots:
+     .hat-img-talk  → animated GIF, shown while typing
+     .hat-img-idle  → static PNG, shown after typing done
+
+   Toggle by adding .is-talking / .is-idle to #hat-overlay.
+   If no GIF: SVG fallback is always shown.
+══════════════════════════════════════════ */
+.hat-overlay {
+  position:absolute;
+  top:var(--hat-top,0px); left:50%; transform:translateX(-50%);
+  z-index:30; width:var(--hat-width,62%); max-width:200px;
+  pointer-events:none;
+  animation:hatFloat 3.2s ease-in-out infinite;
+  filter:drop-shadow(0 0 14px rgba(240,192,64,.55));
+}
+@keyframes hatFloat {
+  0%,100%{ transform:translateX(-50%) translateY(0)   rotate(-2deg); }
+  50%    { transform:translateX(-50%) translateY(-8px) rotate(2deg); }
+}
+.hat-overlay img, .hat-overlay svg { width:100%; height:auto; display:block; }
+
+/* Talking state — GIF */
+.hat-img-talk { display:none; }
+.hat-img-idle { display:none; }
+
+/* State classes */
+.hat-overlay.is-idle    .hat-img-idle  { display:block; }
+.hat-overlay.is-idle    .hat-img-talk  { display:none;  }
+.hat-overlay.is-idle    #hat-svg-fb    { display:none;  }
+
+.hat-overlay.is-talking .hat-img-talk  { display:block; }
+.hat-overlay.is-talking .hat-img-idle  { display:none;  }
+.hat-overlay.is-talking #hat-svg-fb    { display:none;  }
+
+/* SVG always shows if no class is set OR no GIFs defined */
+
+/* ══════════════════════════════════════════
+   DIALOGUE BOX  — PNG frame with layered content
+══════════════════════════════════════════ */
+#dialogue-box {
+  position:relative; z-index:60;
+  width:100%; max-width:700px;
+  display:flex; flex-direction:column; align-items:center;
+  padding:0 10px 0;
+  pointer-events:none;
+  opacity:0;
+  transform:translateY(14px);
+  transition:opacity .4s cubic-bezier(.34,1.3,.64,1), transform .4s cubic-bezier(.34,1.3,.64,1);
+  margin-top:12px;
+  min-height:360px;
+  flex-shrink:0;
+}
+#dialogue-box.visible {
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:all;
+}
+
+/* Relative container — sizes to the PNG image naturally */
+.dialogue-inner {
+  position:relative;
+  width:100%;
+  background:none; border:none; border-radius:0; box-shadow:none;
+  overflow:visible;
+}
+
+/* The PNG itself — fills 100% width, height auto so aspect ratio preserved */
+.dialogue-frame-img {
+  display:block;
+  width:100%;
+  height:auto;
+  user-select:none;
+  pointer-events:none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* q-number — absolute, centered over the gray tab notch at the top of the PNG */
+.q-number {
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:260px;
+  height:11%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Alagard', 'VT323', monospace;
+  font-size:clamp(13px,2.6vw,17px);
+  letter-spacing:3px;
+  color:#d4c8a8;
+  text-transform:uppercase;
+  text-align:center;
+  z-index:3;
+  pointer-events:none;
+  text-shadow:0 1px 4px rgba(0,0,0,.9);
+}
+
+/* Content layer — absolutely fills the parchment area */
+.dialogue-content {
+  position:absolute;
+  top:16%;
+  left:10%;
+  right:10%;
+  bottom:7%;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  overflow:hidden;
+}
+
+/* Text area */
+.dialogue-text-area {
+  flex-shrink:0;
+  padding:6px 4px 4px 4px;
+  font-family:'Alagard', 'VT323', 'Courier New', monospace;
+  font-size:clamp(16px,3vw,20px);
+  line-height:1.6;
+  color:#2a1a06;
+  letter-spacing:.3px;
+  overflow:hidden;
+}
+.dialogue-cursor {
+  display:inline-block; width:2px; height:.9em;
+  background:transparent; margin-left:2px; vertical-align:middle;
+  animation:blinkCursor .65s step-end infinite;
+}
+.dialogue-cursor.hidden { display:none; }
+@keyframes blinkCursor { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Continue prompt */
+.dialogue-continue {
+  position:relative; z-index:1;
+  text-align:right; padding:2px 16px 8px;
+  font-family:'Alagard', 'VT323', monospace; font-size:10px;
+  color:var(--gold-dim); letter-spacing:2px;
+  animation:bounceDown .8s ease-in-out infinite;
+  display:none;
+}
+.dialogue-continue.show { display:block; }
+@keyframes bounceDown { 0%,100%{transform:translateY(0)} 50%{transform:translateY(3px)} }
+
+/* Choices grid — always occupies space, visibility toggles to prevent reflow */
+.dialogue-choices {
+  position:relative; z-index:1;
+  padding:8px 0 0 0;
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  visibility:hidden;
+  opacity:0;
+  transition:opacity .3s ease;
+  align-content:start;
+}
+.dialogue-choices.show {
+  visibility:visible;
+  opacity:1;
+  animation:choicesFadeIn .35s ease both;
+}
+@keyframes choicesFadeIn {
+  from{ opacity:0; transform:translateY(6px); }
+  to  { opacity:1; transform:translateY(0); }
+}
+/* Choice buttons inherit .answer-btn styles (defined below) */
+
+/* ══════════════════════════════════════════
+   ANSWER BUTTONS
+══════════════════════════════════════════ */
+.answer-btn {
+  display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+  padding:10px 13px;
+  background-image:url('assets/choice-box.png');
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  background-color:transparent;
+  border:none; border-radius:0;
+  cursor:pointer; text-align:left;
+  font-family:'Alagard', 'VT323', 'Courier New', monospace;
+  transition:filter .18s, transform .12s;
+  -webkit-tap-highlight-color:transparent;
+  position:relative; overflow:hidden;
+  box-shadow:none;
+  min-height:52px;
+}
+.answer-btn::before {
+  content:''; position:absolute; inset:0;
+  background:transparent;
+  pointer-events:none;
+}
+.answer-btn:hover  { filter:brightness(1.2) drop-shadow(0 0 6px rgba(168,85,247,.6)); transform:translateY(-2px); }
+.answer-btn:active { transform:scale(.97); }
+.ans-label { font-family:'Alagard', 'VT323', monospace; font-size:clamp(13px,3vw,16px); letter-spacing:1.5px; color:#c8a030; text-transform:uppercase; }
+.ans-text  { font-family:'Alagard', 'VT323', monospace; font-size:clamp(13px,3vw,16px); line-height:1.4; color:#e8dfc8; }
+.ans-house { font-size:10px; margin-top:1px; opacity:.5; font-style:italic; }
+.answer-btn.selected-G { filter:drop-shadow(0 0 10px var(--gryffindor-glow)) drop-shadow(0 0 18px rgba(192,57,43,.5)); }
+.answer-btn.selected-R { filter:drop-shadow(0 0 10px var(--ravenclaw-glow)) drop-shadow(0 0 18px rgba(26,111,168,.5)); }
+.answer-btn.selected-H { filter:drop-shadow(0 0 10px var(--hufflepuff-glow)) drop-shadow(0 0 18px rgba(230,168,23,.5)); }
+.answer-btn.selected-S { filter:drop-shadow(0 0 10px var(--slytherin-glow)) drop-shadow(0 0 18px rgba(26,122,74,.5)); }
+.answer-btn:disabled { opacity:.65; cursor:default; transform:none; }
+
+/* ══════════════════════════════════════════
+   SORTING CEREMONY OVERLAY
+══════════════════════════════════════════ */
+#sorting-overlay {
+  position:fixed; inset:0; z-index:100;
+  background:rgba(5,3,14,.93);
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center; gap:22px;
+  opacity:0; transition:opacity .4s;
+}
+#sorting-overlay.active { display:flex; }
+#sorting-overlay.visible { opacity:1; }
+.sorting-hat-container { display:none; }
+.sorting-hat-container .hat-gif-large { display:none; width:100%; height:auto; }
+.sorting-hat-container .hat-emoji {
+  font-size:80px; display:block; text-align:center;
+  animation:hatThink 1s ease-in-out infinite;
+}
+@keyframes hatThink { 0%,100%{transform:rotate(-5deg) scale(1)} 50%{transform:rotate(5deg) scale(1.05)} }
+.sorting-sparks { display:flex; gap:16px; font-size:28px; animation:fadePulse 2s ease-in-out infinite; }
+@keyframes fadePulse { 0%,100%{opacity:.3;transform:scale(.9)} 50%{opacity:1;transform:scale(1.1)} }
+.sorting-text {
+  font-family:'Alagard', 'VT323', monospace; font-size:clamp(18px,5vw,28px);
+  color:var(--gold); text-align:center; letter-spacing:2px;
+  animation:pulse 1.5s ease-in-out infinite; max-width:340px;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* ══════════════════════════════════════════
+   RESULT SCREEN
+══════════════════════════════════════════ */
+#result-screen { justify-content:center; align-items:center; text-align:center; gap:0; padding-top:20px; padding-bottom:40px; }
+
+.result-ceremony {
+  width:100%; max-width:860px;
+  position:relative;
+  animation:resultReveal 1s cubic-bezier(.34,1.45,.64,1) both;
+  background:transparent;
+  border:none; border-radius:0; padding:0;
+  box-shadow:none;
+}
+.result-scroll-bg {
+  display:block; width:100%; height:auto;
+  pointer-events:none; position:relative; z-index:0;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+}
+/* Content overlays on top of the scroll image */
+.result-scroll-content {
+  position:absolute; inset:0; z-index:1;
+  padding:17% 18% 12%;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center;
+  gap:0px;
+  overflow:hidden;
+}
+@keyframes resultReveal {
+  0%  { opacity:0; transform:scale(.72) translateY(28px); }
+  100%{ opacity:1; transform:scale(1) translateY(0); }
+}
+
+
+.result-gif-burst {
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  z-index:0; pointer-events:none; display:none;
+}
+.ceremony-text {
+  font-family:'Alagard', 'VT323', monospace; font-size:clamp(12px,2.4vw,15px); letter-spacing:3px;
+  color:#2a1a06; text-transform:uppercase;
+  position:relative; z-index:1;
+  margin-bottom:8px;
+  animation:fadeInUp .8s ease both .3s;
+}
+.house-badge {
+  position:relative; z-index:1;
+  display:flex; align-items:center; justify-content:center; margin:4px auto 6px;
+  animation:badgeSpin 1s ease both 1s;
+}
+.badge-gif   { display:none; max-width:150px; height:auto; }
+.badge-emoji { font-size:58px; display:block; font-family:'Alagard','VT323',monospace; color:var(--result-color, var(--gold)); }
+@keyframes badgeSpin {
+  0%  { opacity:0; transform:scale(0) rotate(-180deg); }
+  100%{ opacity:1; transform:scale(1) rotate(0); }
+}
+.house-name-reveal {
+  font-family:'Alagard', 'VT323', monospace;
+  font-size:clamp(38px,9vw,62px); font-weight:900;
+  color:var(--result-color,var(--gold));
+  text-shadow: 2px 2px 0 rgba(0,0,0,.25);
+  margin:0px 0 6px; position:relative; z-index:1; line-height:1.0;
+  animation:houseBounce 1.2s cubic-bezier(.34,1.56,.64,1) both .6s;
+}
+@keyframes houseBounce {
+  0%  { opacity:0; transform:scale(.35) rotateX(90deg); }
+  60% { transform:scale(1.08) rotateX(-5deg); }
+  100%{ opacity:1; transform:scale(1) rotateX(0); }
+}
+.house-description {
+  font-family:'Alagard', 'VT323', monospace; font-size:clamp(15px,2.8vw,17px); line-height:1.55; color:#2a1a06; max-width:400px; margin:6px auto 0;
+  position:relative; z-index:1;
+  animation:fadeInUp .8s ease both 1.3s;
+}
+
+/* Restart button on result screen */
+.result-restart-wrap {
+  animation:fadeInUp .8s ease both 2s;
+  margin-top:6px;
+}
+
+/* ══════════════════════════════════════════
+   LOOP HOUSE — FULL SCREEN EASTER EGG
+══════════════════════════════════════════ */
+#loop-overlay {
+  position:fixed; inset:0; z-index:200;
+  background:#000;
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center; overflow:hidden;
+}
+#loop-overlay.active { display:flex; }
+
+/* Scanlines */
+#loop-overlay::before {
+  content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,136,.03) 2px,rgba(0,255,136,.03) 4px);
+  animation:scanroll 4s linear infinite;
+}
+@keyframes scanroll { to { background-position:0 80px; } }
+/* CRT vignette */
+#loop-overlay::after {
+  content:''; position:absolute; inset:0; z-index:2; pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.88) 100%);
+}
+
+.loop-content {
+  position:relative; z-index:10;
+  text-align:center; padding:28px 24px; max-width:500px; width:100%;
+}
+.loop-terminal-line {
+  font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:clamp(12px,2.5vw,15px);
+  color:var(--loop-green); letter-spacing:2px;
+  line-height:1.6; margin-bottom:6px;
+  opacity:0; text-shadow:0 0 8px var(--loop-green);
+  white-space:nowrap; overflow:hidden;
+}
+.loop-anomaly {
+  font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:clamp(13px,3vw,17px);
+  color:rgba(0,255,136,.5); letter-spacing:1px; line-height:1.8;
+  margin:16px 0 20px; opacity:0;
+}
+.loop-house-name {
+  font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:clamp(52px,14vw,96px); font-weight:900;
+  color:var(--loop-green); letter-spacing:10px;
+  text-shadow:0 0 20px var(--loop-green),0 0 60px var(--loop-green),0 0 100px rgba(0,255,136,.35);
+  opacity:0; animation:glitchName 4.5s ease-in-out infinite; animation-play-state:paused;
+}
+.loop-house-name.show { opacity:1; animation-play-state:running; }
+@keyframes glitchName {
+  0%,88%,100%{ text-shadow:0 0 20px var(--loop-green),0 0 60px var(--loop-green); transform:none; }
+  90%  { transform:translate(-4px,0) skewX(-6deg); text-shadow:4px 0 0 #ff0044,-4px 0 0 #00ffff; }
+  92%  { transform:translate(4px,0); text-shadow:-4px 0 0 #ff0044,4px 0 0 #00ffff; }
+  94%  { transform:translate(-2px,1px) skewX(2deg); }
+  96%  { transform:translate(1px,-2px); }
+}
+.loop-subtitle {
+  font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:clamp(11px,2.5vw,14px); color:rgba(0,255,136,.65);
+  letter-spacing:4px; margin:6px 0 20px; opacity:0;
+}
+.loop-subtitle.show { opacity:1; }
+.loop-desc {
+  font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:clamp(13px,2.5vw,16px); color:rgba(0,255,136,.5);
+  line-height:1.85; letter-spacing:.5px; margin-bottom:28px; opacity:0;
+}
+.loop-desc.show { opacity:1; }
+
+/* LOOP continue button */
+.loop-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:12px 32px; font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:clamp(14px,3vw,17px); letter-spacing:3px;
+  color:#000; background:var(--loop-green);
+  border:none; border-radius:3px; cursor:pointer;
+  box-shadow:0 0 20px var(--loop-green),0 0 40px rgba(0,255,136,.3);
+  transition:transform .15s, box-shadow .15s;
+  opacity:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.loop-btn.show { opacity:1; }
+.loop-btn:hover  { transform:scale(1.04); box-shadow:0 0 30px var(--loop-green),0 0 60px rgba(0,255,136,.4); }
+.loop-btn:active { transform:scale(.97); }
+
+/* Glitch bar particles */
+.glitch-bar {
+  position:absolute; pointer-events:none; z-index:5;
+  background:var(--loop-green); height:2px; opacity:0;
+  animation:glitchBar var(--gd,.4s) ease-out forwards;
+  animation-delay:var(--gde,0s);
+}
+@keyframes glitchBar {
+  0%  { opacity:.8; transform:scaleX(1); }
+  100%{ opacity:0; transform:scaleX(.1) translateX(var(--gdx,40px)); }
+}
+
+/* Screen-flicker utility */
+.do-flicker { animation:screenFlicker .7s ease forwards; }
+@keyframes screenFlicker {
+  0%  { filter:none; }
+  12% { filter:brightness(3.5) hue-rotate(120deg) saturate(2); }
+  25% { filter:none; }
+  40% { filter:brightness(.15) contrast(5); }
+  50% { filter:none; }
+  65% { filter:brightness(2.5) hue-rotate(240deg) saturate(3); }
+  78% { filter:none; }
+  100%{ filter:none; }
+}
+
+/* ══════════════════════════════════════════
+   SHARED KEYFRAMES
+══════════════════════════════════════════ */
+@keyframes fadeDown  { from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeInUp  { from{opacity:0;transform:translateY(18px)}  to{opacity:1;transform:translateY(0)} }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media(max-width:420px){
+  .dialogue-choices { grid-template-columns:1fr; }
+  .crest { width:44px; height:44px; font-size:18px; }
+  #dialogue-box { min-height:420px; }
+}
+@media(min-width:600px) and (max-width:1024px){
+  .screen { padding:28px 24px 60px; }
+  .answer-btn { padding:12px 14px; }
+}
+@media(min-width:1025px){
+  #question-screen { padding:32px 28px 60px; }
+  .camera-panel  { max-width:440px; }
+  .q-progress-bar { max-width:540px; }
+  #dialogue-box  { max-width:680px; }
+}
+
+/* Result screen restart button — choice-box PNG */
+.result-restart-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  margin-top:14px;
+  padding:8px 28px;
+  background-image:url('choice-box.png');
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  background-color:transparent;
+  border:none; border-radius:0;
+  cursor:pointer;
+  font-family:'Alagard', 'VT323', monospace;
+  font-size:clamp(17px,4vw,22px);
+  letter-spacing:2px;
+  color:#7a3a0a;
+  min-width:160px; min-height:44px;
+  transition:filter .18s, transform .12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.result-restart-btn:hover  { filter:brightness(1.25) drop-shadow(0 0 8px rgba(240,192,64,.6)); transform:translateY(-2px); }
+.result-restart-btn:active { transform:scale(.97); }
+
+</style>
+</head>
+<body>
+
+<!-- Starfield -->
+<div id="starfield"></div>
+<!-- BG layers -->
+<div class="bg-layer" id="bg-start"></div>
+<div class="bg-layer" id="bg-question"></div>
+<div class="bg-layer" id="bg-result"></div>
+
+<!-- ══════════════════════════════════════════
+     SORTING CEREMONY OVERLAY
+══════════════════════════════════════════ -->
+<div id="sorting-overlay">
+  <div class="sorting-hat-container">
+    <img class="hat-gif-large" id="sorting-hat-gif" src="" alt="Sorting Hat">
+    <span class="hat-emoji" id="sorting-hat-emoji"></span>
+  </div>
+  <div class="sorting-sparks"></div>
+  <div class="sorting-text" id="sorting-msg">Hmm… Let me think…</div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LOOP HOUSE EASTER EGG OVERLAY
+══════════════════════════════════════════ -->
+<div id="loop-overlay">
+  <div class="loop-content" id="loop-content">
+    <!-- Injected by JS for precise timing -->
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     START SCREEN
+══════════════════════════════════════════ -->
+<div id="start-screen" class="screen active">
+  <img class="start-deco-left"  id="deco-left"  src="" alt="">
+  <img class="start-deco-right" id="deco-right" src="" alt="">
+  <img class="start-deco-top"   id="deco-top"   src="" alt="">
+
+  <div class="title-wrap">
+    <div class="title-main">Debugwarts</div>
+    <div class="title-sub">House Allocation System</div>
+  </div>
+  <div class="divider-magic"></div>
+  <p class="tagline">
+    The ancient hat has processed a thousand lines of code,<br>
+    and now it shall read <em>your</em> mind…
+  </p>
+  <button class="btn-magic" onclick="startGame()">Begin Allocation</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     QUESTION SCREEN
+══════════════════════════════════════════ -->
+<div id="question-screen" class="screen">
+
+  <div class="score-hud" id="score-hud" style="display:none!important">
+    <div class="hud-item"><div class="hud-dot" style="--dot-color:var(--gryffindor-glow)"></div><span class="hud-score" id="hud-G">G: 0</span></div>
+    <div class="hud-item"><div class="hud-dot" style="--dot-color:var(--ravenclaw-glow)"></div><span class="hud-score" id="hud-R">R: 0</span></div>
+    <div class="hud-item"><div class="hud-dot" style="--dot-color:var(--hufflepuff-glow)"></div><span class="hud-score" id="hud-H">H: 0</span></div>
+    <div class="hud-item"><div class="hud-dot" style="--dot-color:var(--slytherin-glow)"></div><span class="hud-score" id="hud-S">S: 0</span></div>
+  </div>
+
+  <!-- Camera + Hat -->
+  <div class="camera-panel">
+    <div class="magic-circle" id="magic-circle-ring"></div>
+    <div class="camera-frame" id="camera-frame">
+      <!-- Video / placeholder behind the frame PNG -->
+      <video id="webcam" autoplay playsinline muted style="display:none"></video>
+      <div class="cam-placeholder" id="cam-placeholder">
+        <span class="cam-icon" style="font-size:38px;opacity:.4;">[ HAT ]</span>
+        <span>The Sorting Hat awaits…<br><small style="opacity:.6">Allow camera access to be seen during sorting!</small></span>
+      </div>
+    </div>
+    <!-- PNG frame overlay — outside camera-frame so it isn't clipped -->
+    <img class="camera-frame-img" src="assets/camera-overlay.png" alt="">
+
+    <!-- Hat overlay lives OUTSIDE camera-frame so it can overflow upward -->
+    <div class="hat-overlay" id="hat-overlay">
+      <img class="hat-img-talk" id="hat-img-talk" src="" alt="Sorting Hat">
+      <img class="hat-img-idle" id="hat-img-idle" src="" alt="Sorting Hat">
+      <svg id="hat-svg-fb" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="185" rx="90" ry="18" fill="#2a1a05" stroke="#5a3a10" stroke-width="2"/>
+        <ellipse cx="100" cy="182" rx="80" ry="13" fill="#3a2208"/>
+        <path d="M35 185 Q40 150 55 110 Q65 80 100 20 Q135 80 145 110 Q160 150 165 185Z" fill="#2a1a05" stroke="#5a3a10" stroke-width="2"/>
+        <path d="M42 165 Q100 155 158 165" stroke="#5a3a10" stroke-width="3" fill="none"/>
+        <path d="M55 180 Q60 140 75 100 Q85 70 100 20 Q88 60 82 90 Q70 130 65 175Z" fill="#1a0e02" opacity=".5"/>
+        <path d="M115 25 Q130 60 140 100 Q148 130 152 165" stroke="#7a5a20" stroke-width="1.5" fill="none" opacity=".4"/>
+        <text x="90" y="140" font-size="18" fill="#c8a030" opacity=".7" font-family="serif">⚡</text>
+        <ellipse cx="82" cy="105" rx="7" ry="5" fill="#1a0a00"/>
+        <ellipse cx="118" cy="105" rx="7" ry="5" fill="#1a0a00"/>
+        <circle cx="82" cy="104" r="2.5" fill="#ff8c00" opacity=".9"/>
+        <circle cx="118" cy="104" r="2.5" fill="#ff8c00" opacity=".9"/>
+        <path d="M85 118 Q100 128 115 118" stroke="#4a2a08" stroke-width="2" fill="none"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="q-progress-bar">
+    <!-- Layer 1: background PNG -->
+    <img class="q-progress-bar-back" src="assets/progress-bar-back.png" alt="">
+    <!-- Layer 2: the animated fill bar (sandwiched) -->
+    <div class="q-progress-fill-wrap">
+      <div class="q-progress-fill" id="q-progress" style="width:10%"></div>
+    </div>
+    <!-- Layer 3: foreground/frame PNG on top -->
+    <img class="q-progress-bar-front" src="assets/progress-bar-front.png" alt="">
+  </div>
+
+  <!-- Dialogue / Question box — PNG frame as real img, content layered on top -->
+  <div id="dialogue-box">
+    <div class="dialogue-inner">
+      <!-- The PNG frame rendered as a real image -->
+      <img class="dialogue-frame-img" src="assets/question-box.png" alt="">
+      <!-- Tab label — floats over the gray notch at top-center of PNG -->
+      <div class="q-number" id="q-number">Question 1 of 10</div>
+      <!-- Content layer — sits inside the parchment area -->
+      <div class="dialogue-content">
+        <div class="dialogue-text-area">
+          <span id="dialogue-text"></span>
+          <span class="dialogue-cursor hidden" id="dialogue-cursor"></span>
+        </div>
+        <div class="" id="dialogue-continue"></div>
+        <div class="dialogue-choices" id="dialogue-choices"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /#question-screen -->
+
+<!-- ══════════════════════════════════════════
+     RESULT SCREEN
+══════════════════════════════════════════ -->
+<div id="result-screen" class="screen">
+
+  <div class="result-ceremony" id="result-ceremony">
+    <img class="result-scroll-bg" src="assets/result-box.png" alt="">
+    <div class="result-scroll-content">
+      <img class="result-gif-burst" id="result-gif-burst" src="" alt="">
+      <p class="ceremony-text">The Allocation System has spoken…</p>
+      <div class="house-badge" id="house-badge">
+        <img class="badge-gif" id="badge-gif" src="" alt="">
+        <span class="badge-emoji" id="badge-emoji"></span>
+      </div>
+      <div class="house-name-reveal" id="result-name">HOUSE</div>
+      <p class="house-description" id="result-desc">Description here.</p>
+      <button class="result-restart-btn" onclick="restartGame()">Sort Again</button>
+    </div>
+  </div>
+
+</div><!-- /#result-screen -->
+
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT ENGINE
+══════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── HOUSES ─────────────────────────────────────────────
+const HOUSES = {
+  G: {
+    name:'GRYFFINDOR', emoji:'G', color:'#c0392b', glow:'rgba(192,57,43,.5)', assetKey:'houseGryffindor',
+    description:'Brave, bold, and gloriously reckless. You charge at bugs like a knight charges at dragons — fearless, relentless, and occasionally on fire. Your courage is legendary. So are your runtime errors.',
+  },
+  R: {
+    name:'RAVENCLAW', emoji:'R', color:'#1a6fa8', glow:'rgba(26,111,168,.5)', assetKey:'houseRavenclaw',
+    description:'The Hat senses a mind of rare precision. You read the stack trace like scripture, architect systems with cold elegance, and refuse to touch a line of code before the logic is airtight. Knowledge is your most powerful spell.',
+  },
+  H: {
+    name:'HUFFLEPUFF', emoji:'H', color:'#e6a817', glow:'rgba(230,168,23,.5)', assetKey:'houseHufflepuff',
+    description:'Patient. Meticulous. Unbreakable. While others rush to ship, you are the one who actually reads the documentation. Your code does not merely work — it endures. Debugwarts is safer with you in it.',
+  },
+  S: {
+    name:'SLYTHERIN', emoji:'S', color:'#1a7a4a', glow:'rgba(26,122,74,.5)', assetKey:'houseSlytherin',
+    description:'Cunning, resourceful, and three steps ahead. You do not fight bugs head-on — you outmaneuver them. Where others see obstacles, you see elegant shortcuts. Ambition and cleverness are your greatest weapons.',
+  },
+  LOOP: {
+    name:'LOOP', emoji:'inf', color:'#00ff88', glow:'rgba(0,255,136,.5)', assetKey:'houseLOOP',
+    description:'An anomaly. The Hat has never seen anything quite like you. Your mind recurses where others iterate, finds patterns in chaos, and loops back when all paths seem closed. You do not belong to a house — the house belongs to you.',
+  },
+};
+
+// ── QUESTIONS ──────────────────────────────────────────
+const QUESTIONS = [
+  { text:'A spectral bug haunts your code at 2 AM. No error message. No trace. Just… wrong output. You…', answers:[
+    {label:'A', text:'Start smashing fixes in — something HAS to work eventually',  house:'G'},
+    {label:'B', text:'Light a candle, open the logs, and begin your sacred ritual of deduction', house:'R'},
+    {label:'C', text:'Retrace every line since it last worked, one careful step at a time', house:'H'},
+    {label:'D', text:'Conjure a workaround so clever the bug becomes irrelevant', house:'S'},
+  ]},
+  { text:'Your code detonates at runtime. Error message reads: "undefined is not a function." Your first instinct is…', answers:[
+    {label:'A', text:'Comment things out until it runs, then fix from there', house:'G'},
+    {label:'B', text:'Read the full stack trace like a prophecy scroll before touching anything', house:'R'},
+    {label:'C', text:'Roll back your last change — slowly, carefully, without panicking', house:'H'},
+    {label:'D', text:'Google a faster pattern that sidesteps the whole mess', house:'S'},
+  ]},
+  { text:'You are presented with a dark tome: a programming language you have never seen. You…', answers:[
+    {label:'A', text:'Crack it open and start writing code immediately — learn by fire', house:'G'},
+    {label:'B', text:'Study the docs thoroughly before writing a single rune', house:'R'},
+    {label:'C', text:'Work through the official tutorial, step by step, like a proper apprentice', house:'H'},
+    {label:'D', text:'Find what you need for your specific task and learn only that — efficiency is power', house:'S'},
+  ]},
+  { text:'Deadline in 30 minutes. A critical bug awakens like a dark spell. You…', answers:[
+    {label:'A', text:'Try every incantation you know until one breaks the curse', house:'G'},
+    {label:'B', text:'Stay calm, trace the root cause — panicking never fixed a bug', house:'R'},
+    {label:'C', text:'Make the safest possible fix and leave no unstable stones unturned', house:'H'},
+    {label:'D', text:'Apply the fastest patch that ships it, then revisit after the storm', house:'S'},
+  ]},
+  { text:'You face a labyrinthine problem — so complex the dungeon has its own dungeon. You…', answers:[
+    {label:'A', text:'Charge in and start solving — the path reveals itself through action', house:'G'},
+    {label:'B', text:'Map every passage before you step through the first door', house:'R'},
+    {label:'C', text:'Tackle one chamber at a time, confirming each is clear before moving on', house:'H'},
+    {label:'D', text:'Search for a secret passage — there is always a smarter way through', house:'S'},
+  ]},
+  { text:'Your fellowship is working on a grand project. Which role do you claim?', answers:[
+    {label:'A', text:'The bold one who charges in to fix bugs when the pressure peaks', house:'G'},
+    {label:'B', text:'The architect who designs the system\'s structure from first principles', house:'R'},
+    {label:'C', text:'The guardian who tests every corner and ensures nothing is left broken', house:'H'},
+    {label:'D', text:'The optimizer who makes it run faster, leaner, and more elegant', house:'S'},
+  ]},
+  { text:'When a bug refuses to reveal itself, your preferred debugging spell is…', answers:[
+    {label:'A', text:'Trial and error — try, break, repeat until victory', house:'G'},
+    {label:'B', text:'Summon the debugger and read the logs like ancient runes', house:'R'},
+    {label:'C', text:'Step through the code manually, line by holy line', house:'H'},
+    {label:'D', text:'Reach for an unconventional tool or rewrite the afflicted section entirely', house:'S'},
+  ]},
+  { text:'Nothing works. Every fix spawns two new problems. Your tower is burning. You…', answers:[
+    {label:'A', text:'Keep casting spells — you will outlast it through sheer stubbornness', house:'G'},
+    {label:'B', text:'Step back and re-examine the logic from scratch — the foundation is flawed', house:'R'},
+    {label:'C', text:'Restore the last stable version and rebuild from there', house:'H'},
+    {label:'D', text:'Abandon the burning tower entirely and conjure a new one', house:'S'},
+  ]},
+  { text:'Given a choice, the kind of code you most love to write is…', answers:[
+    {label:'A', text:'Fast-moving, action-driven features that ship quickly', house:'G'},
+    {label:'B', text:'Elegant, well-structured systems with clean logic at the core', house:'R'},
+    {label:'C', text:'Reliable, thoroughly tested components that never break in production', house:'H'},
+    {label:'D', text:'Clever, flexible abstractions that can bend to any requirement', house:'S'},
+  ]},
+  { text:'The final trial: all systems have failed. The production server weeps. You…', answers:[
+    {label:'A', text:'Push forward with relentless energy until the light returns', house:'G'},
+    {label:'B', text:'Diagnose with surgical precision — you will not guess your way to salvation', house:'R'},
+    {label:'C', text:'Slow down, breathe, and rebuild correctly — rushing now costs more later', house:'H'},
+    {label:'D', text:'Abandon the cursed approach entirely and forge a new path', house:'S'},
+  ]},
+];
+
+// ── GAME STATE ─────────────────────────────────────────
+let currentQ     = 0;
+let scores       = {G:0, R:0, H:0, S:0};
+let lastAnswer   = null;
+let cameraStream = null;
+let typingTimer  = null;
+let voiceAudio   = null;
+let isTyping     = false;
+
+// ══════════════════════════════════════════════════════
+//  ASSET WIRING
+// ══════════════════════════════════════════════════════
+function applyAssets() {
+  const root = document.documentElement;
+  root.style.setProperty('--hat-top',   ASSETS.hatOffsetTop || '0px');
+  root.style.setProperty('--hat-width', ASSETS.hatWidth     || '62%');
+
+  function show(el, src) {
+    if (!el || !src) return false;
+    el.src = src; el.style.display = 'block'; return true;
+  }
+
+  // Hat: talk image
+  const talkImg = document.getElementById('hat-img-talk');
+  const idleImg = document.getElementById('hat-img-idle');
+  const svgFb   = document.getElementById('hat-svg-fb');
+
+  if (ASSETS.hat)     { talkImg.src = ASSETS.hat; }
+  if (ASSETS.hatIdle) { idleImg.src = ASSETS.hatIdle; }
+  else if (ASSETS.hat){ idleImg.src = ASSETS.hat; } // fallback idle = talk gif
+
+  const hasGif = !!(ASSETS.hat || ASSETS.hatIdle);
+  if (svgFb) svgFb.style.display = hasGif ? 'none' : 'block';
+
+  // Default to idle state
+  setHatIdle();
+
+  // Sorting overlay hat
+  const sortGifShown = show(document.getElementById('sorting-hat-gif'), ASSETS.hat);
+  const sortEmoji    = document.getElementById('sorting-hat-emoji');
+  if (sortEmoji) sortEmoji.style.display = sortGifShown ? 'none' : 'block';
+
+  // Screen backgrounds
+  [['bg-start',ASSETS.bgStart],['bg-question',ASSETS.bgQuestion],['bg-result',ASSETS.bgResult]].forEach(([id,src])=>{
+    if (!src) return;
+    const el = document.getElementById(id);
+    if (el) { el.style.backgroundImage=`url('${src}')`; el.dataset.hasGif='1'; }
+  });
+
+  // Camera frame PNG is now hardcoded in HTML — no JS wiring needed.
+  // Corners, sparkles, and gif-overlay are all removed.
+
+  // Result burst
+  const burstEl=document.getElementById('result-gif-burst');
+  if(burstEl && ASSETS.resultReveal){
+    burstEl.src=ASSETS.resultReveal;
+    burstEl.style.width=ASSETS.resultRevealSize||'320px';
+    burstEl.style.height='auto'; burstEl.style.display='block';
+  }
+
+  // House crests on start screen
+  ['G','R','H','S'].forEach(h=>{
+    const src=ASSETS[HOUSES[h].assetKey];
+    const crest=document.getElementById(`crest-${h}`);
+    if(crest && src) crest.innerHTML=`<img src="${src}" alt="${HOUSES[h].name}">`;
+  });
+
+  // Start decorations
+  show(document.getElementById('deco-left'),  ASSETS.startLeft);
+  show(document.getElementById('deco-right'), ASSETS.startRight);
+  show(document.getElementById('deco-top'),   ASSETS.startTop);
+
+  // Particles
+  spawnParticles();
+}
+
+// ── PARTICLES ──────────────────────────────────────────
+function spawnParticles() {
+  const colors=['#a855f7','#22d3ee','#f0c040','#fff'];
+  for(let i=0;i<18;i++){
+    const el=document.createElement('div');
+    const dur=5+Math.random()*8, del=Math.random()*8,
+          dx=(Math.random()-.5)*80, x=Math.random()*100;
+    if(ASSETS.particle){
+      el.className='gif-particle';
+      el.style.cssText=`left:${x}%;bottom:-40px;--dur:${dur}s;--del:${del}s;--dx:${dx}px;`;
+      const img=document.createElement('img');
+      img.src=ASSETS.particle; img.alt='';
+      const sz=ASSETS.particleSize||'20px';
+      img.style.cssText=`width:${sz};height:${sz};display:block;`;
+      el.appendChild(img);
+    } else {
+      el.className='dot-particle';
+      el.style.cssText=`left:${x}%;bottom:-10px;background:${colors[Math.floor(Math.random()*colors.length)]};--dur:${dur}s;--del:${del}s;--dx:${dx}px;`;
+    }
+    document.body.appendChild(el);
+  }
+}
+
+// ── STARFIELD ──────────────────────────────────────────
+function initStarfield() {
+  const sf=document.getElementById('starfield');
+  for(let i=0;i<130;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const sz=Math.random()*2.5+.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--dur:${2+Math.random()*4}s;--op:${.4+Math.random()*.6};animation-delay:${Math.random()*5}s;`;
+    sf.appendChild(s);
+  }
+}
+
+// ── BG LAYER ───────────────────────────────────────────
+function switchBgLayer(screenId) {
+  ['bg-start','bg-question','bg-result'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+  const map={'start-screen':'bg-start','question-screen':'bg-question','result-screen':'bg-result'};
+  const bgId=map[screenId];
+  if(bgId){ const el=document.getElementById(bgId); if(el&&el.dataset.hasGif) el.style.display='block'; }
+}
+
+// ── CAMERA ─────────────────────────────────────────────
+async function initCamera() {
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    cameraStream=stream;
+    const vid=document.getElementById('webcam');
+    vid.srcObject=stream; vid.style.display='block';
+    document.getElementById('cam-placeholder').style.display='none';
+  } catch(e){ console.log('Camera unavailable:',e.message); }
+}
+function stopCamera() {
+  if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream=null; }
+}
+
+// ── SCREEN ─────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  switchBgLayer(id);
+}
+
+// ══════════════════════════════════════════════════════
+//  HAT STATE
+// ══════════════════════════════════════════════════════
+function setHatTalking() {
+  const hat=document.getElementById('hat-overlay');
+  hat.classList.remove('is-idle'); hat.classList.add('is-talking');
+  // Re-trigger animated GIF by reloading src with cache-bust
+  const talkImg=document.getElementById('hat-img-talk');
+  if(ASSETS.hat) talkImg.src=ASSETS.hat+'?t='+Date.now();
+  document.getElementById('camera-frame')?.classList.add('talking');
+}
+function setHatIdle() {
+  const hat=document.getElementById('hat-overlay');
+  hat.classList.remove('is-talking'); hat.classList.add('is-idle');
+  document.getElementById('camera-frame')?.classList.remove('talking');
+}
+
+// ══════════════════════════════════════════════════════
+//  VOICE SFX
+// ══════════════════════════════════════════════════════
+function startVoice() {
+  if(!ASSETS.hatVoice) return;
+  if(!voiceAudio){
+    voiceAudio=new Audio(ASSETS.hatVoice);
+    voiceAudio.loop=true; voiceAudio.volume=0.32;
+  }
+  voiceAudio.currentTime=0;
+  voiceAudio.play().catch(()=>{});
+}
+function stopVoice() {
+  if(!voiceAudio) return;
+  // Fade out smoothly
+  const fade=setInterval(()=>{
+    if(voiceAudio.volume>0.04){ voiceAudio.volume=Math.max(0,voiceAudio.volume-.05); }
+    else { voiceAudio.pause(); voiceAudio.currentTime=0; voiceAudio.volume=0.32; clearInterval(fade); }
+  },40);
+}
+
+// ══════════════════════════════════════════════════════
+//  BACKGROUND MUSIC
+// ══════════════════════════════════════════════════════
+let bgMusicAudio = null;
+
+function startBgMusic() {
+  if(!ASSETS.bgMusic) return;
+  if(!bgMusicAudio) {
+    bgMusicAudio = new Audio(ASSETS.bgMusic);
+    bgMusicAudio.loop    = true;
+    bgMusicAudio.volume  = 0;
+  }
+  bgMusicAudio.play().catch(()=>{});
+  // Fade in gradually
+  let vol = 0;
+  const fadeIn = setInterval(()=>{
+    vol = Math.min(0.38, vol + 0.02);
+    bgMusicAudio.volume = vol;
+    if(vol >= 0.38) clearInterval(fadeIn);
+  }, 60);
+}
+
+function stopBgMusic() {
+  if(!bgMusicAudio) return;
+  const fadeOut = setInterval(()=>{
+    bgMusicAudio.volume = Math.max(0, bgMusicAudio.volume - 0.02);
+    if(bgMusicAudio.volume <= 0) {
+      bgMusicAudio.pause();
+      bgMusicAudio.currentTime = 0;
+      clearInterval(fadeOut);
+    }
+  }, 60);
+}
+
+// ══════════════════════════════════════════════════════
+//  GAME FLOW
+// ══════════════════════════════════════════════════════
+function startGame() {
+  currentQ=0; scores={G:0,R:0,H:0,S:0}; lastAnswer=null;
+  showScreen('question-screen');
+  initCamera();
+  startBgMusic();
+  // Show dialogue box with slide-up
+  setTimeout(()=>{ document.getElementById('dialogue-box').classList.add('visible'); }, 300);
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q=QUESTIONS[currentQ];
+
+  // Update header
+  document.getElementById('q-number').textContent=`Question ${currentQ+1} of ${QUESTIONS.length}`;
+  const pct = ((currentQ+1)/QUESTIONS.length)*100;
+  const fill = document.getElementById('q-progress');
+  fill.style.width = `${pct}%`;
+  fill.style.backgroundSize = `${10000/pct}% 100%`;
+
+  // Reset dialogue box
+  const textEl  = document.getElementById('dialogue-text');
+  const cursor  = document.getElementById('dialogue-cursor');
+  const choices = document.getElementById('dialogue-choices');
+  const contEl  = document.getElementById('dialogue-continue');
+
+  textEl.textContent='';
+  choices.classList.remove('show');
+  contEl.classList.remove('show');
+  cursor.classList.remove('hidden');
+
+  // Pre-populate choices hidden — space is reserved, zero reflow later
+  choices.innerHTML='';
+  q.answers.forEach((ans,i)=>{
+    const btn=document.createElement('button');
+    btn.className='answer-btn';
+    btn.dataset.key=String(i+1);
+    btn.innerHTML=`
+      <span class="ans-label">[${ans.label}]</span>
+      <span class="ans-text">${ans.text}</span>
+    `;
+    btn.onclick=()=>selectAnswer(ans.house,btn);
+    choices.appendChild(btn);
+  });
+
+  // Hat starts talking
+  setHatTalking();
+  startVoice();
+  isTyping=true;
+
+  // Type question letter by letter
+  let idx=0;
+  clearInterval(typingTimer);
+
+  function typeNext() {
+    if(!isTyping) return;
+    if(idx < q.text.length) {
+      textEl.textContent += q.text[idx];
+      idx++;
+      typingTimer=setTimeout(typeNext, 42);
+    } else {
+      // Typing complete
+      finishTyping(q);
+    }
+  }
+  typeNext();
+}
+
+function finishTyping(q) {
+  isTyping=false;
+  stopVoice();
+  setHatIdle();
+
+  const cursor  = document.getElementById('dialogue-cursor');
+  const choices = document.getElementById('dialogue-choices');
+  const contEl  = document.getElementById('dialogue-continue');
+
+  cursor.classList.add('hidden');
+
+  // Reveal choices — no DOM change, just visibility
+  setTimeout(()=>{
+    choices.classList.add('show');
+  }, 180);
+}
+
+function selectAnswer(house, btn) {
+  document.querySelectorAll('.answer-btn').forEach(b=>b.disabled=true);
+  btn.classList.add(`selected-${house}`);
+  lastAnswer=house; scores[house]++;
+  updateHUD();
+  setTimeout(()=>{
+    currentQ++;
+    if(currentQ < QUESTIONS.length) renderQuestion(); else beginSorting();
+  }, 650);
+}
+
+function updateHUD() {
+  ['G','R','H','S'].forEach(h=>document.getElementById(`hud-${h}`).textContent=`${h}: ${scores[h]}`);
+}
+
+// ══════════════════════════════════════════════════════
+//  SORTING CEREMONY
+// ══════════════════════════════════════════════════════
+function beginSorting() {
+  // Hide dialogue box
+  document.getElementById('dialogue-box').classList.remove('visible');
+  clearTimeout(typingTimer);
+  stopVoice();
+  setHatIdle();
+
+  const overlay = document.getElementById('sorting-overlay');
+  const msg     = document.getElementById('sorting-msg');
+  overlay.classList.add('active');
+  // Fade in
+  requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('visible')));
+
+  const msgs=[
+    'Scanning your neural pathways…',
+    'Detecting debugging instincts…',
+    'Consulting the ancient algorithms…',
+    'Parsing your code personality…',
+    'The Hat has decided…',
+  ];
+  let mi=0; msg.textContent=msgs[mi];
+  const iv=setInterval(()=>{
+    mi++;
+    if(mi < msgs.length){ msg.textContent=msgs[mi]; }
+    else {
+      clearInterval(iv);
+      setTimeout(()=>{
+        overlay.classList.remove('visible');
+        setTimeout(()=>{ overlay.classList.remove('active'); determineResult(); },400);
+      },900);
+    }
+  },750);
+}
+
+// ══════════════════════════════════════════════════════
+//  RESULT LOGIC
+// ══════════════════════════════════════════════════════
+function determineResult() {
+  stopCamera();
+
+  // Normal winner
+  const sorted=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  let winner=sorted[0][0];
+  if(sorted.length>1 && sorted[0][1]===sorted[1][1]) winner=lastAnswer;
+
+  // LOOP easter egg
+  const loopChance = (typeof ASSETS.loopChance==='number') ? ASSETS.loopChance : 0.95;
+  if(Math.random() < loopChance) {
+    showLOOP(winner);
+    return;
+  }
+  showResult(winner);
+}
+
+// ══════════════════════════════════════════════════════
+//  NORMAL RESULT SCREEN
+// ══════════════════════════════════════════════════════
+function showResult(winner) {
+  const house=HOUSES[winner];
+  const ceremony=document.getElementById('result-ceremony');
+  ceremony.style.setProperty('--result-color',house.color);
+  ceremony.style.setProperty('--result-glow', house.glow);
+
+  const badgeGif  =document.getElementById('badge-gif');
+  const badgeEmoji=document.getElementById('badge-emoji');
+  const houseGif  =ASSETS[house.assetKey];
+  if(houseGif){ badgeGif.src=houseGif; badgeGif.style.display='block'; badgeEmoji.style.display='none'; }
+  else { badgeEmoji.textContent=house.emoji; badgeEmoji.style.display='block'; badgeGif.style.display='none'; }
+
+  document.getElementById('result-name').textContent =house.name;
+  document.getElementById('result-name').style.color =house.color;
+  document.getElementById('result-name').style.textShadow=`0 0 30px ${house.glow},0 0 60px ${house.glow}`;
+  document.getElementById('result-desc').textContent =house.description;
+
+  const burst=document.getElementById('result-gif-burst');
+  if(burst && ASSETS.resultReveal){ burst.src=ASSETS.resultReveal+'?t='+Date.now(); burst.style.display='block'; }
+
+  showScreen('result-screen');
+}
+
+// ══════════════════════════════════════════════════════
+//  LOOP EASTER EGG SEQUENCE
+// ══════════════════════════════════════════════════════
+function showLOOP(actualWinner) {
+  const overlay=document.getElementById('loop-overlay');
+  const content=document.getElementById('loop-content');
+  content.innerHTML=''; // clear
+
+  overlay.classList.add('active');
+
+  // Flicker the screen first
+  document.body.classList.add('do-flicker');
+  setTimeout(()=>document.body.classList.remove('do-flicker'),800);
+
+  // Spawn glitch bars
+  for(let i=0;i<18;i++){
+    const bar=document.createElement('div');
+    bar.className='glitch-bar';
+    const w=20+Math.random()*200;
+    bar.style.cssText=`
+      width:${w}px; top:${Math.random()*100}vh; left:${Math.random()*80}vw;
+      --gd:${.3+Math.random()*.5}s; --gde:${Math.random()*.6}s;
+      --gdx:${(Math.random()-.5)*120}px;
+    `;
+    overlay.appendChild(bar);
+    setTimeout(()=>bar.remove(),1400);
+  }
+
+  // Build content with staggered CSS animations
+  const lines=[
+    {cls:'loop-terminal-line', html:'> ANOMALY DETECTED IN SORTING MATRIX', delay:300},
+    {cls:'loop-terminal-line', html:'> PATTERN: NON-STANDARD / RECURSIVE', delay:700},
+    {cls:'loop-terminal-line', html:'> OVERRIDE INITIATED…', delay:1100},
+  ];
+
+  lines.forEach(({cls,html,delay})=>{
+    const el=document.createElement('div');
+    el.className=cls; el.textContent=html;
+    setTimeout(()=>{ el.style.animation='fadeInUp .5s ease both'; el.style.opacity='1'; }, delay);
+    content.appendChild(el);
+  });
+
+  // Anomaly message
+  const anomaly=document.createElement('div');
+  anomaly.className='loop-anomaly';
+  anomaly.textContent='"The Hat has detected something… unusual.\nYour mind does not fit any standard classification."';
+  setTimeout(()=>{ anomaly.style.animation='fadeInUp .6s ease both'; anomaly.style.opacity='1'; },1700);
+  content.appendChild(anomaly);
+
+  // House name
+  const nameEl=document.createElement('div');
+  nameEl.className='loop-house-name';
+  nameEl.textContent='LOOP';
+  content.appendChild(nameEl);
+
+  const subtitle=document.createElement('div');
+  subtitle.className='loop-subtitle';
+  subtitle.textContent='League of Outstanding Programmers';
+  content.appendChild(subtitle);
+
+  const desc=document.createElement('div');
+  desc.className='loop-desc';
+  desc.textContent=HOUSES.LOOP.description;
+  content.appendChild(desc);
+
+  // Continue button
+  const btn=document.createElement('button');
+  btn.className='loop-btn';
+  btn.textContent='[ CONTINUE → ]';
+  btn.onclick=()=>{
+    overlay.classList.remove('active');
+    // Show normal result for actual winner in background after LOOP
+    showResult(actualWinner === 'LOOP' ? 'G' : actualWinner);
+    // Override displayed result with LOOP data
+    setTimeout(()=>{
+      document.getElementById('result-name').textContent='LOOP';
+      document.getElementById('result-name').style.color='#00ff88';
+      document.getElementById('result-name').style.textShadow='0 0 30px rgba(0,255,136,.5),0 0 60px rgba(0,255,136,.5)';
+      document.getElementById('result-desc').textContent=HOUSES.LOOP.description;
+      document.getElementById('badge-emoji').textContent='INF';
+      document.getElementById('badge-emoji').style.display='block';
+      document.getElementById('badge-gif').style.display='none';
+      const ceremony=document.getElementById('result-ceremony');
+      ceremony.style.setProperty('--result-color','#00ff88');
+      ceremony.style.setProperty('--result-glow','rgba(0,255,136,.5)');
+    },50);
+  };
+  content.appendChild(btn);
+
+  // Reveal elements with delays
+  setTimeout(()=>{ nameEl.classList.add('show'); },2600);
+  setTimeout(()=>{ subtitle.classList.add('show'); },3200);
+  setTimeout(()=>{ desc.classList.add('show'); },3700);
+  setTimeout(()=>{ btn.classList.add('show'); },4300);
+}
+
+// ── RESTART ────────────────────────────────────────────
+function restartGame() {
+  clearTimeout(typingTimer);
+  stopVoice();
+  stopBgMusic();
+  isTyping=false;
+  document.getElementById('dialogue-box').classList.remove('visible');
+  showScreen('start-screen');
+}
+
+// ── KEYBOARD ───────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if(['1','2','3','4'].includes(e.key)){
+    document.querySelector(`.answer-btn[data-key="${e.key}"]:not(:disabled)`)?.click();
+  }
+  if(e.key==='Enter' && document.getElementById('start-screen').classList.contains('active')) startGame();
+});
+
+// ── INIT ───────────────────────────────────────────────
+initStarfield();
+applyAssets();
+</script>
+</body>
+</html>
