@@ -15,77 +15,51 @@
   }
 </style>
 
-<!-- ============================================================
-  GIF ASSET CONFIGURATION
-  Replace any null with a file path or URL string.
-  null = built-in CSS/SVG fallback (no file needed).
-  ============================================================ -->
+<!-- ASSET CONFIGURATION -->
 <script>
 const ASSETS = {
-  // 🎩 Sorting Hat — animated GIF (plays while talking)
   hat:      "assets/hat.gif",
-  // 🎩 Sorting Hat — idle/static image (shows when not talking)
-  hatIdle:  "assets/hat-idle.png",   // null = keeps hat.gif
-  // 🔊 Hat voice SFX — loops while text types
-  hatVoice: "assets/hat-voice.mp3",  // null = no sound
-  // 🎵 Background music — loops throughout the experience
-  bgMusic:  "assets/bg-music.mp3",   // null = no background music
+  hatIdle:  "assets/hat-idle.png",
+  hatVoice: "assets/hat-voice.mp3",
+  bgMusic:  "assets/bg-music.mp3",
 
-  // 🌌 Screen backgrounds (null = CSS starfield)
   bgStart:    null,
   bgQuestion: null,
   bgResult:   null,
 
-  // ✨ Floating particle GIF (null = CSS dots)
   particle: null,
 
-  // 💫 Camera frame overlay (null = CSS glow border)
   cameraOverlay: "assets/camera-overlay.png",
-  // 🔮 Camera corner GIF — mirrored to all 4 corners (null = CSS brackets)
   cameraCorner: null,
-  // 🌟 Sparkle GIF inside camera frame (null = CSS glyphs)
   sparkle: null,
 
-  // 🎆 Result burst GIF behind house name (null = CSS glow)
   resultReveal: null,
 
-  // 🏰 House crest images
   houseGryffindor: "assets/gryffindor-crest.png",
   houseRavenclaw:  "assets/ravenclaw-crest.png",
   houseHufflepuff: "assets/hufflepuff-crest.png",
-  houseSlytherin:  "assets/slytherin-crest.png",  
+  houseSlytherin:  "assets/slytherin-crest.png",
   houseLOOP:       "assets/loop-crest.png",
 
-  // ✦ Start screen decoration GIFs
   startLeft: null, startRight: null, startTop: null,
 
-  // 📐 Size / position overrides
   hatWidth:         "62%",
   hatOffsetTop:     "0px",
   particleSize:     "20px",
-  sparkleSize:      "16px",
-  cornerSize:       "44px",
   resultRevealSize: "320px",
 
-  // 🎲 LOOP easter egg — probability 0–1 (0.08 = 8% chance)
   loopChance: 0.10,
 
-  // 🖱️ Choice box SFX
   choiceHover:  "assets/choice-box-hover.mp3",
   choiceSelect: "assets/choice-box-select.mp3",
 
-  // ⚡ LOOP easter egg SFX — plays once on glitch trigger
-  loopGlitchSfx: "assets/loop-glitch.mp3",           // e.g. "assets/loop-glitch.mp3"
-  // 🎵 LOOP alternate music — replaces bg-music through result screen
-  loopMusic:     null,           // e.g. "assets/loop-music.mp3"
+  loopGlitchSfx: "assets/loop-glitch.mp3",
+  loopMusic:     null,
 };
 </script>
-<!-- END ASSET CONFIG -->
 
 <style>
-/* ══════════════════════════════════════════
-   DESIGN TOKENS
-══════════════════════════════════════════ */
+/* DESIGN TOKENS */
 :root {
   --gold:            #f0c040;
   --gold-dim:        #a07820;
@@ -122,9 +96,7 @@ html, body {
   overflow-x:hidden; overflow-y:auto;
 }
 
-/* ══════════════════════════════════════════
-   STARFIELD
-══════════════════════════════════════════ */
+/* STARFIELD */
 #starfield { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
 .star {
   position:absolute; border-radius:50%; background:#fff;
@@ -135,41 +107,30 @@ html, body {
   50%    { opacity:var(--op,.8); transform:scale(1); }
 }
 
-/* ══════════════════════════════════════════
-   GIF BACKGROUND LAYERS
-══════════════════════════════════════════ */
+/* BG LAYERS */
 .bg-layer {
   position:fixed; inset:0; z-index:1; pointer-events:none;
   background-size:cover; background-position:center; display:none;
 }
 
-/* ══════════════════════════════════════════
-   PARALLAX BACKGROUND
-   Slightly oversized so edge-panning has room.
-   Hidden during the LOOP easter egg via body.loop-active.
-══════════════════════════════════════════ */
+/* PARALLAX BACKGROUND */
 #parallax-bg {
   position:fixed;
-  /* Small bleed so panning never reveals an edge */
   top:-3%; left:-3%; width:106%; height:106%;
   z-index:0; pointer-events:none;
-  background-image:none;          /* set by JS */
+  background-image:none;
   background-size:cover;
   background-repeat:no-repeat;
   background-position:50% 50%;
   image-rendering:pixelated;
   image-rendering:crisp-edges;
-  display:none;                   /* shown only on matching screens */
-  /* smooth position transitions between ticks */
+  display:none;
   transition:background-position 1.2s cubic-bezier(.45,.05,.55,.95);
   will-change:background-position;
 }
-/* Hide parallax whenever the LOOP easter egg is active */
 body.loop-active #parallax-bg { display:none !important; }
 
-/* ══════════════════════════════════════════
-   PARTICLES
-══════════════════════════════════════════ */
+/* PARTICLES */
 .gif-particle, .dot-particle {
   position:fixed; pointer-events:none; z-index:2;
   animation:floatUp var(--dur,7s) ease-in infinite;
@@ -183,9 +144,7 @@ body.loop-active #parallax-bg { display:none !important; }
   100%{ opacity:0; transform:translateY(-120vh) translateX(var(--dx,30px)) scale(1.5); }
 }
 
-/* ══════════════════════════════════════════
-   SCREENS
-══════════════════════════════════════════ */
+/* SCREENS */
 .screen {
   position:relative; z-index:10; min-height:100vh;
   display:none; flex-direction:column;
@@ -194,9 +153,7 @@ body.loop-active #parallax-bg { display:none !important; }
 }
 .screen.active { display:flex; }
 
-/* ══════════════════════════════════════════
-   START SCREEN
-══════════════════════════════════════════ */
+/* START SCREEN */
 #start-screen { justify-content:center; text-align:center; gap:0; }
 
 .start-deco-left, .start-deco-right {
@@ -257,7 +214,8 @@ body.loop-active #parallax-bg { display:none !important; }
   color:var(--gold); font-size:14px;
   background:var(--bg-deep); padding:0 8px;
 }
-/* ── Main Banner ── */
+
+/* MAIN BANNER */
 .main-banner-wrap {
   position:relative; display:inline-flex; align-items:center; justify-content:center;
   width:clamp(340px, 68vw, 660px); margin-bottom:6px;
@@ -293,7 +251,8 @@ body.loop-active #parallax-bg { display:none !important; }
   70%  { transform:scale(1.04) translateY(-2px); filter:brightness(1.18) drop-shadow(0 0 14px rgba(240,192,64,.7)); }
   100% { transform:scale(1); filter:brightness(1); }
 }
-/* ── Start Button ── */
+
+/* START BUTTON */
 .start-btn-wrap {
   position:relative; display:inline-flex; align-items:center; justify-content:center;
   width:clamp(200px, 30vw, 320px); cursor:pointer;
@@ -319,9 +278,7 @@ body.loop-active #parallax-bg { display:none !important; }
   -webkit-tap-highlight-color:transparent;
 }
 
-/* ══════════════════════════════════════════
-   BUTTONS
-══════════════════════════════════════════ */
+/* BUTTONS */
 .btn-magic {
   display:inline-flex; align-items:center; justify-content:center; gap:10px;
   padding:16px 42px; font-family:'Alagard', 'VT323', monospace;
@@ -347,13 +304,11 @@ body.loop-active #parallax-bg { display:none !important; }
 .btn-restart {
   background:linear-gradient(135deg,var(--purple) 0%,#c084fc 50%,var(--purple) 100%);
   color:#fff; box-shadow:0 0 30px rgba(124,58,237,.5),0 4px 20px rgba(0,0,0,.5);
-  animation:none; /* override the start-screen fadeDown */
+  animation:none;
 }
 .btn-restart:hover { box-shadow:0 0 50px rgba(168,85,247,.7),0 8px 30px rgba(0,0,0,.5); }
 
-/* ══════════════════════════════════════════
-   QUESTION SCREEN LAYOUT
-══════════════════════════════════════════ */
+/* QUESTION SCREEN */
 #question-screen {
   gap:0;
   padding-top:24px;
@@ -362,7 +317,6 @@ body.loop-active #parallax-bg { display:none !important; }
   align-items:center;
 }
 
-/* Progress & HUD */
 .score-hud {
   display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
   width:100%; max-width:480px; animation:fadeDown .5s ease both;
@@ -376,7 +330,7 @@ body.loop-active #parallax-bg { display:none !important; }
 .hud-dot { width:10px; height:10px; border-radius:50%; background:var(--dot-color); box-shadow:0 0 8px var(--dot-color); }
 .hud-score { color:var(--text-main); }
 
-/* Progress bar strip below camera */
+/* PROGRESS BAR */
 .q-progress-bar {
   width:100%; max-width:480px;
   margin-top:18px; flex-shrink:0;
@@ -384,14 +338,12 @@ body.loop-active #parallax-bg { display:none !important; }
   display:block;
   line-height:0;
 }
-/* Back PNG — bottommost layer, sets the size of the whole widget */
 .q-progress-bar-back {
   width:100%; height:auto; display:block;
   image-rendering:pixelated; image-rendering:crisp-edges;
   pointer-events:none; user-select:none;
   position:relative; z-index:1;
 }
-/* Front/frame PNG — topmost layer, absolutely overlaid */
 .q-progress-bar-front {
   position:absolute; inset:0;
   width:100%; height:100%; object-fit:fill;
@@ -399,10 +351,8 @@ body.loop-active #parallax-bg { display:none !important; }
   pointer-events:none; user-select:none;
   z-index:3;
 }
-/* Fill overlay — sits between back and front PNGs */
 .q-progress-fill-wrap {
   position:absolute;
-  /* Inset values align to the inner capsule track */
   top:28%; bottom:28%; left:5%; right:5%;
   overflow:hidden; border-radius:4px;
   z-index:2;
@@ -417,13 +367,10 @@ body.loop-active #parallax-bg { display:none !important; }
   font-family:'Alagard', 'VT323', monospace; font-size:clamp(14px,3vw,18px); letter-spacing:3px;
   color:var(--gold-dim); text-transform:uppercase; width:100%; max-width:480px;
   text-align:center; margin-top:8px; flex-shrink:0;
-  /* Fixed line-height so it never causes reflow */
   line-height:1.4; height:1.4em; overflow:hidden;
 }
 
-/* ══════════════════════════════════════════
-   CAMERA PANEL
-══════════════════════════════════════════ */
+/* CAMERA PANEL */
 .camera-panel {
   width:100%; max-width:400px; position:relative;
   overflow:visible; padding-top:70px; margin-top:-10px;
@@ -434,12 +381,10 @@ body.loop-active #parallax-bg { display:none !important; }
   border:none; box-shadow:none;
   transition:box-shadow .5s ease;
 }
-/* Glow only when Sorting Hat is speaking */
 .camera-frame.talking {
   box-shadow:0 0 28px rgba(240,192,64,.45), 0 0 6px rgba(240,192,64,.25);
 }
 
-/* PNG frame — positioned over .camera-frame via .camera-panel, not clipped */
 .camera-frame-img {
   position:absolute; z-index:20;
   top:70px; left:0; right:0;
@@ -448,13 +393,12 @@ body.loop-active #parallax-bg { display:none !important; }
   pointer-events:none; user-select:none;
 }
 
-/* Legacy elements suppressed */
+/* Suppressed legacy elements */
 .magic-circle    { display:none; }
 .camera-gif-overlay { display:none !important; }
 .camera-corner   { display:none !important; }
 .sparkle-gif, .sparkle-css { display:none !important; }
 
-/* Webcam */
 #webcam { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none; }
 .cam-placeholder {
   width:100%; height:100%; display:flex; flex-direction:column;
@@ -464,18 +408,7 @@ body.loop-active #parallax-bg { display:none !important; }
 }
 .cam-placeholder .cam-icon { font-size:38px; opacity:.4; }
 
-/* ══════════════════════════════════════════
-   SORTING HAT OVERLAY
-   Lives in .camera-panel (overflow:visible),
-   NOT inside .camera-frame (overflow:hidden).
-
-   Two image slots:
-     .hat-img-talk  → animated GIF, shown while typing
-     .hat-img-idle  → static PNG, shown after typing done
-
-   Toggle by adding .is-talking / .is-idle to #hat-overlay.
-   If no GIF: SVG fallback is always shown.
-══════════════════════════════════════════ */
+/* SORTING HAT OVERLAY */
 .hat-overlay {
   position:absolute;
   top:var(--hat-top,0px); left:50%; transform:translateX(-50%);
@@ -490,11 +423,9 @@ body.loop-active #parallax-bg { display:none !important; }
 }
 .hat-overlay img, .hat-overlay svg { width:100%; height:auto; display:block; }
 
-/* Talking state — GIF */
 .hat-img-talk { display:none; }
 .hat-img-idle { display:none; }
 
-/* State classes */
 .hat-overlay.is-idle    .hat-img-idle  { display:block; }
 .hat-overlay.is-idle    .hat-img-talk  { display:none;  }
 .hat-overlay.is-idle    #hat-svg-fb    { display:none;  }
@@ -503,11 +434,7 @@ body.loop-active #parallax-bg { display:none !important; }
 .hat-overlay.is-talking .hat-img-idle  { display:none;  }
 .hat-overlay.is-talking #hat-svg-fb    { display:none;  }
 
-/* SVG always shows if no class is set OR no GIFs defined */
-
-/* ══════════════════════════════════════════
-   DIALOGUE BOX  — PNG frame with layered content
-══════════════════════════════════════════ */
+/* DIALOGUE BOX */
 #dialogue-box {
   position:relative; z-index:60;
   width:100%; max-width:700px;
@@ -527,7 +454,6 @@ body.loop-active #parallax-bg { display:none !important; }
   pointer-events:all;
 }
 
-/* Relative container — sizes to the PNG image naturally */
 .dialogue-inner {
   position:relative;
   width:100%;
@@ -535,7 +461,6 @@ body.loop-active #parallax-bg { display:none !important; }
   overflow:visible;
 }
 
-/* The PNG itself — fills 100% width, height auto so aspect ratio preserved */
 .dialogue-frame-img {
   display:block;
   width:100%;
@@ -546,7 +471,6 @@ body.loop-active #parallax-bg { display:none !important; }
   image-rendering: crisp-edges;
 }
 
-/* q-number — absolute, centered over the gray tab notch at the top of the PNG */
 .q-number {
   position:absolute;
   top:0;
@@ -566,7 +490,6 @@ body.loop-active #parallax-bg { display:none !important; }
   text-shadow:0 1px 4px rgba(0,0,0,.9);
 }
 
-/* Content layer — absolutely fills the parchment area */
 .dialogue-content {
   position:absolute;
   top:16%;
@@ -580,7 +503,6 @@ body.loop-active #parallax-bg { display:none !important; }
   overflow:hidden;
 }
 
-/* Text area */
 .dialogue-text-area {
   flex-shrink:0;
   padding:6px 4px 4px 4px;
@@ -599,7 +521,6 @@ body.loop-active #parallax-bg { display:none !important; }
 .dialogue-cursor.hidden { display:none; }
 @keyframes blinkCursor { 0%,100%{opacity:1} 50%{opacity:0} }
 
-/* Continue prompt */
 .dialogue-continue {
   position:relative; z-index:1;
   text-align:right; padding:2px 16px 8px;
@@ -611,7 +532,6 @@ body.loop-active #parallax-bg { display:none !important; }
 .dialogue-continue.show { display:block; }
 @keyframes bounceDown { 0%,100%{transform:translateY(0)} 50%{transform:translateY(3px)} }
 
-/* Choices grid — always occupies space, visibility toggles to prevent reflow */
 .dialogue-choices {
   position:relative; z-index:1;
   padding:8px 0 0 0;
@@ -630,11 +550,8 @@ body.loop-active #parallax-bg { display:none !important; }
   from{ opacity:0; transform:translateY(6px); }
   to  { opacity:1; transform:translateY(0); }
 }
-/* Choice buttons inherit .answer-btn styles (defined below) */
 
-/* ══════════════════════════════════════════
-   ANSWER BUTTONS
-══════════════════════════════════════════ */
+/* ANSWER BUTTONS */
 .answer-btn {
   display:flex; flex-direction:column; align-items:flex-start; gap:3px;
   padding:10px 13px;
@@ -667,9 +584,7 @@ body.loop-active #parallax-bg { display:none !important; }
 .answer-btn.selected-S { filter:drop-shadow(0 0 10px var(--slytherin-glow)) drop-shadow(0 0 18px rgba(26,122,74,.5)); }
 .answer-btn:disabled { opacity:.65; cursor:default; transform:none; }
 
-/* ══════════════════════════════════════════
-   SORTING CEREMONY OVERLAY
-══════════════════════════════════════════ */
+/* SORTING CEREMONY OVERLAY */
 #sorting-overlay {
   position:fixed; inset:0; z-index:100;
   background:rgba(5,3,14,.93);
@@ -695,9 +610,7 @@ body.loop-active #parallax-bg { display:none !important; }
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-/* ══════════════════════════════════════════
-   RESULT SCREEN
-══════════════════════════════════════════ */
+/* RESULT SCREEN */
 #result-screen { justify-content:center; align-items:center; text-align:center; gap:0; padding-top:20px; padding-bottom:40px; }
 
 .result-ceremony {
@@ -713,7 +626,6 @@ body.loop-active #parallax-bg { display:none !important; }
   pointer-events:none; position:relative; z-index:0;
   image-rendering:pixelated; image-rendering:crisp-edges;
 }
-/* Content overlays on top of the scroll image */
 .result-scroll-content {
   position:absolute; inset:0; z-index:1;
   padding:17% 18% 12%;
@@ -725,7 +637,6 @@ body.loop-active #parallax-bg { display:none !important; }
   0%  { opacity:0; transform:scale(.72) translateY(28px); }
   100%{ opacity:1; transform:scale(1) translateY(0); }
 }
-
 
 .result-gif-burst {
   position:absolute; top:50%; left:50%;
@@ -769,15 +680,12 @@ body.loop-active #parallax-bg { display:none !important; }
   animation:fadeInUp .8s ease both 1.3s;
 }
 
-/* Restart button on result screen */
 .result-restart-wrap {
   animation:fadeInUp .8s ease both 2s;
   margin-top:6px;
 }
 
-/* ══════════════════════════════════════════
-   LOOP HOUSE — FULL SCREEN EASTER EGG
-══════════════════════════════════════════ */
+/* LOOP EASTER EGG */
 #loop-overlay {
   position:fixed; inset:0; z-index:200;
   background:radial-gradient(ellipse at 40% 35%, #0d1f5c 0%, #050d2e 55%, #000510 100%);
@@ -786,14 +694,12 @@ body.loop-active #parallax-bg { display:none !important; }
 }
 #loop-overlay.active { display:flex; }
 
-/* Scanlines */
 #loop-overlay::before {
   content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(77,184,255,.025) 2px,rgba(77,184,255,.025) 4px);
   animation:scanroll 4s linear infinite;
 }
 @keyframes scanroll { to { background-position:0 80px; } }
-/* CRT vignette */
 #loop-overlay::after {
   content:''; position:absolute; inset:0; z-index:2; pointer-events:none;
   background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.88) 100%);
@@ -858,7 +764,6 @@ body.loop-active #parallax-bg { display:none !important; }
 }
 .loop-desc.show { opacity:1; }
 
-/* LOOP continue button */
 .loop-btn {
   display:inline-flex; align-items:center; justify-content:center;
   padding:12px 32px; font-family:'Alagard','VT323','Courier New',monospace;
@@ -875,7 +780,6 @@ body.loop-active #parallax-bg { display:none !important; }
 .loop-btn:hover  { transform:scale(1.04); box-shadow:0 0 30px var(--loop-glow),0 0 60px rgba(77,184,255,.35); }
 .loop-btn:active { transform:scale(.97); }
 
-/* Glitch bar particles */
 .glitch-bar {
   position:absolute; pointer-events:none; z-index:5;
   background:linear-gradient(90deg, var(--loop-primary), rgba(77,184,255,.4)); height:2px; opacity:0;
@@ -887,7 +791,6 @@ body.loop-active #parallax-bg { display:none !important; }
   100%{ opacity:0; transform:scaleX(.1) translateX(var(--gdx,40px)); }
 }
 
-/* Grid perspective floor — echoes the reference image */
 .loop-grid-bg {
   position:absolute; inset:0; z-index:0; pointer-events:none;
   background-image:
@@ -914,15 +817,11 @@ body.loop-active #parallax-bg { display:none !important; }
   100%{ filter:none; }
 }
 
-/* ══════════════════════════════════════════
-   SHARED KEYFRAMES
-══════════════════════════════════════════ */
+/* SHARED KEYFRAMES */
 @keyframes fadeDown  { from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:translateY(0)} }
 @keyframes fadeInUp  { from{opacity:0;transform:translateY(18px)}  to{opacity:1;transform:translateY(0)} }
 
-/* ══════════════════════════════════════════
-   RESPONSIVE
-══════════════════════════════════════════ */
+/* RESPONSIVE */
 @media(max-width:420px){
   .dialogue-choices { grid-template-columns:1fr; }
   .crest { width:44px; height:44px; font-size:18px; }
@@ -939,7 +838,7 @@ body.loop-active #parallax-bg { display:none !important; }
   #dialogue-box  { max-width:680px; }
 }
 
-/* Result screen restart button — choice-box PNG */
+/* RESULT RESTART BUTTON */
 .result-restart-btn {
   display:inline-flex; align-items:center; justify-content:center;
   margin-top:14px;
@@ -967,16 +866,14 @@ body.loop-active #parallax-bg { display:none !important; }
 
 <!-- Starfield -->
 <div id="starfield"></div>
-<!-- Parallax background (Main Menu · Q&A · Result; NOT during LOOP) -->
+<!-- Parallax background -->
 <div id="parallax-bg"></div>
-<!-- BG layers -->
+<!-- Per-screen BG layers -->
 <div class="bg-layer" id="bg-start"></div>
 <div class="bg-layer" id="bg-question"></div>
 <div class="bg-layer" id="bg-result"></div>
 
-<!-- ══════════════════════════════════════════
-     SORTING CEREMONY OVERLAY
-══════════════════════════════════════════ -->
+<!-- SORTING CEREMONY OVERLAY -->
 <div id="sorting-overlay">
   <div class="sorting-hat-container">
     <img class="hat-gif-large" id="sorting-hat-gif" src="" alt="Sorting Hat">
@@ -986,19 +883,13 @@ body.loop-active #parallax-bg { display:none !important; }
   <div class="sorting-text" id="sorting-msg">Hmm… Let me think…</div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     LOOP HOUSE EASTER EGG OVERLAY
-══════════════════════════════════════════ -->
+<!-- LOOP EASTER EGG OVERLAY -->
 <div id="loop-overlay">
   <div class="loop-grid-bg"></div>
-  <div class="loop-content" id="loop-content">
-    <!-- Injected by JS for precise timing -->
-  </div>
+  <div class="loop-content" id="loop-content"></div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     START SCREEN
-══════════════════════════════════════════ -->
+<!-- START SCREEN -->
 <div id="start-screen" class="screen active">
   <img class="start-deco-left"  id="deco-left"  src="" alt="">
   <img class="start-deco-right" id="deco-right" src="" alt="">
@@ -1033,9 +924,7 @@ body.loop-active #parallax-bg { display:none !important; }
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     QUESTION SCREEN
-══════════════════════════════════════════ -->
+<!-- QUESTION SCREEN -->
 <div id="question-screen" class="screen">
 
   <div class="score-hud" id="score-hud" style="display:none!important">
@@ -1049,17 +938,15 @@ body.loop-active #parallax-bg { display:none !important; }
   <div class="camera-panel">
     <div class="magic-circle" id="magic-circle-ring"></div>
     <div class="camera-frame" id="camera-frame">
-      <!-- Video / placeholder behind the frame PNG -->
       <video id="webcam" autoplay playsinline muted style="display:none"></video>
       <div class="cam-placeholder" id="cam-placeholder">
         <span class="cam-icon" style="font-size:38px;opacity:.4;">[ HAT ]</span>
         <span>The Sorting Hat awaits…<br><small style="opacity:.6">Allow camera access to be seen during sorting!</small></span>
       </div>
     </div>
-    <!-- PNG frame overlay — outside camera-frame so it isn't clipped -->
     <img class="camera-frame-img" src="assets/camera-overlay.png" alt="">
 
-    <!-- Hat overlay lives OUTSIDE camera-frame so it can overflow upward -->
+    <!-- Hat overlay lives outside camera-frame so it can overflow upward -->
     <div class="hat-overlay" id="hat-overlay">
       <img class="hat-img-talk" id="hat-img-talk" src="" alt="Sorting Hat">
       <img class="hat-img-idle" id="hat-img-idle" src="" alt="Sorting Hat">
@@ -1080,25 +967,20 @@ body.loop-active #parallax-bg { display:none !important; }
     </div>
   </div>
 
+  <!-- Progress Bar -->
   <div class="q-progress-bar">
-    <!-- Layer 1: background PNG -->
     <img class="q-progress-bar-back" src="assets/progress-bar-back.png" alt="">
-    <!-- Layer 2: the animated fill bar (sandwiched) -->
     <div class="q-progress-fill-wrap">
       <div class="q-progress-fill" id="q-progress" style="width:10%"></div>
     </div>
-    <!-- Layer 3: foreground/frame PNG on top -->
     <img class="q-progress-bar-front" src="assets/progress-bar-front.png" alt="">
   </div>
 
-  <!-- Dialogue / Question box — PNG frame as real img, content layered on top -->
+  <!-- Dialogue / Question Box -->
   <div id="dialogue-box">
     <div class="dialogue-inner">
-      <!-- The PNG frame rendered as a real image -->
       <img class="dialogue-frame-img" src="assets/question-box.png" alt="">
-      <!-- Tab label — floats over the gray notch at top-center of PNG -->
       <div class="q-number" id="q-number">Question 1 of 10</div>
-      <!-- Content layer — sits inside the parchment area -->
       <div class="dialogue-content">
         <div class="dialogue-text-area">
           <span id="dialogue-text"></span>
@@ -1110,11 +992,9 @@ body.loop-active #parallax-bg { display:none !important; }
     </div>
   </div>
 
-</div><!-- /#question-screen -->
+</div>
 
-<!-- ══════════════════════════════════════════
-     RESULT SCREEN
-══════════════════════════════════════════ -->
+<!-- RESULT SCREEN -->
 <div id="result-screen" class="screen">
 
   <div class="result-ceremony" id="result-ceremony">
@@ -1132,16 +1012,13 @@ body.loop-active #parallax-bg { display:none !important; }
     </div>
   </div>
 
-</div><!-- /#result-screen -->
+</div>
 
-
-<!-- ══════════════════════════════════════════
-     JAVASCRIPT ENGINE
-══════════════════════════════════════════ -->
+<!-- JAVASCRIPT ENGINE -->
 <script>
 'use strict';
 
-// ── HOUSES ─────────────────────────────────────────────
+// HOUSES
 const HOUSES = {
   G: {
     name:'GRYFFINDOR', emoji:'G', color:'#c0392b', glow:'rgba(192,57,43,.5)', assetKey:'houseGryffindor',
@@ -1165,7 +1042,7 @@ const HOUSES = {
   },
 };
 
-// ── QUESTIONS ──────────────────────────────────────────
+// QUESTIONS
 const QUESTIONS = [
   { text:'A spectral bug haunts your code at 2 AM. No error message. No trace. Just… wrong output. You…', answers:[
     {label:'A', text:'Start smashing fixes in — something HAS to work eventually',  house:'G'},
@@ -1229,7 +1106,7 @@ const QUESTIONS = [
   ]},
 ];
 
-// ── GAME STATE ─────────────────────────────────────────
+// GAME STATE
 let currentQ     = 0;
 let scores       = {G:0, R:0, H:0, S:0};
 let lastAnswer   = null;
@@ -1238,9 +1115,7 @@ let typingTimer  = null;
 let voiceAudio   = null;
 let isTyping     = false;
 
-// ══════════════════════════════════════════════════════
-//  ASSET WIRING
-// ══════════════════════════════════════════════════════
+// ASSET WIRING
 function applyAssets() {
   const root = document.documentElement;
   root.style.setProperty('--hat-top',   ASSETS.hatOffsetTop || '0px');
@@ -1251,37 +1126,29 @@ function applyAssets() {
     el.src = src; el.style.display = 'block'; return true;
   }
 
-  // Hat: talk image
   const talkImg = document.getElementById('hat-img-talk');
   const idleImg = document.getElementById('hat-img-idle');
   const svgFb   = document.getElementById('hat-svg-fb');
 
   if (ASSETS.hat)     { talkImg.src = ASSETS.hat; }
   if (ASSETS.hatIdle) { idleImg.src = ASSETS.hatIdle; }
-  else if (ASSETS.hat){ idleImg.src = ASSETS.hat; } // fallback idle = talk gif
+  else if (ASSETS.hat){ idleImg.src = ASSETS.hat; }
 
   const hasGif = !!(ASSETS.hat || ASSETS.hatIdle);
   if (svgFb) svgFb.style.display = hasGif ? 'none' : 'block';
 
-  // Default to idle state
   setHatIdle();
 
-  // Sorting overlay hat
   const sortGifShown = show(document.getElementById('sorting-hat-gif'), ASSETS.hat);
   const sortEmoji    = document.getElementById('sorting-hat-emoji');
   if (sortEmoji) sortEmoji.style.display = sortGifShown ? 'none' : 'block';
 
-  // Screen backgrounds
   [['bg-start',ASSETS.bgStart],['bg-question',ASSETS.bgQuestion],['bg-result',ASSETS.bgResult]].forEach(([id,src])=>{
     if (!src) return;
     const el = document.getElementById(id);
     if (el) { el.style.backgroundImage=`url('${src}')`; el.dataset.hasGif='1'; }
   });
 
-  // Camera frame PNG is now hardcoded in HTML — no JS wiring needed.
-  // Corners, sparkles, and gif-overlay are all removed.
-
-  // Result burst
   const burstEl=document.getElementById('result-gif-burst');
   if(burstEl && ASSETS.resultReveal){
     burstEl.src=ASSETS.resultReveal;
@@ -1289,27 +1156,23 @@ function applyAssets() {
     burstEl.style.height='auto'; burstEl.style.display='block';
   }
 
-  // House crests on start screen
   ['G','R','H','S'].forEach(h=>{
     const src=ASSETS[HOUSES[h].assetKey];
     const crest=document.getElementById(`crest-${h}`);
     if(crest && src) crest.innerHTML=`<img src="${src}" alt="${HOUSES[h].name}">`;
   });
 
-  // Start decorations
   show(document.getElementById('deco-left'),  ASSETS.startLeft);
   show(document.getElementById('deco-right'), ASSETS.startRight);
   show(document.getElementById('deco-top'),   ASSETS.startTop);
 
-  // Particles
   spawnParticles();
 
-  // Parallax background — shared across Menu, Q&A and Result screens
   initParallax('assets/main-background.png');
-  showParallax('start-screen'); // show on initial load
+  showParallax('start-screen');
 }
 
-// ── PARTICLES ──────────────────────────────────────────
+// PARTICLES
 function spawnParticles() {
   const colors=['#a855f7','#22d3ee','#f0c040','#fff'];
   for(let i=0;i<18;i++){
@@ -1332,28 +1195,22 @@ function spawnParticles() {
   }
 }
 
-// ── PARALLAX BACKGROUND ────────────────────────────────
-// The parallax element is separate from the per-screen bg-layer divs.
-// It stays visible across Main Menu, Q&A and Result screens,
-// and is hidden while the LOOP overlay is shown.
-
+// PARALLAX
 const PARALLAX_SCREENS = new Set(['start-screen','question-screen','result-screen']);
-let _parallaxTick = null;   // setInterval handle
+let _parallaxTick = null;
 
 function initParallax(src) {
   const el = document.getElementById('parallax-bg');
   if (!el || !src) return;
   el.style.backgroundImage = `url('${src}')`;
 
-  // Slow drift: pick a new random target position every second.
-  // The CSS transition smoothly interpolates between ticks.
-  const range = 3; // percent — matches the 3% bleed above
+  const range = 3;
   function tick() {
     const x = 50 + (Math.random() * 2 - 1) * range;
     const y = 50 + (Math.random() * 2 - 1) * range;
     el.style.backgroundPosition = `${x.toFixed(2)}% ${y.toFixed(2)}%`;
   }
-  tick(); // set initial position immediately
+  tick();
   if (_parallaxTick) clearInterval(_parallaxTick);
   _parallaxTick = setInterval(tick, 1000);
 }
@@ -1364,7 +1221,7 @@ function showParallax(screenId) {
   el.style.display = PARALLAX_SCREENS.has(screenId) ? 'block' : 'none';
 }
 
-
+// STARFIELD
 function initStarfield() {
   const sf=document.getElementById('starfield');
   for(let i=0;i<130;i++){
@@ -1376,7 +1233,7 @@ function initStarfield() {
   }
 }
 
-// ── BG LAYER ───────────────────────────────────────────
+// BG LAYER SWITCHING
 function switchBgLayer(screenId) {
   ['bg-start','bg-question','bg-result'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.style.display='none';
@@ -1386,7 +1243,7 @@ function switchBgLayer(screenId) {
   if(bgId){ const el=document.getElementById(bgId); if(el&&el.dataset.hasGif) el.style.display='block'; }
 }
 
-// ── CAMERA ─────────────────────────────────────────────
+// CAMERA
 async function initCamera() {
   try {
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
@@ -1400,7 +1257,7 @@ function stopCamera() {
   if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream=null; }
 }
 
-// ── SCREEN ─────────────────────────────────────────────
+// SCREEN NAVIGATION
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -1408,13 +1265,10 @@ function showScreen(id) {
   showParallax(id);
 }
 
-// ══════════════════════════════════════════════════════
-//  HAT STATE
-// ══════════════════════════════════════════════════════
+// HAT STATE
 function setHatTalking() {
   const hat=document.getElementById('hat-overlay');
   hat.classList.remove('is-idle'); hat.classList.add('is-talking');
-  // Re-trigger animated GIF by reloading src with cache-bust
   const talkImg=document.getElementById('hat-img-talk');
   if(ASSETS.hat) talkImg.src=ASSETS.hat+'?t='+Date.now();
   document.getElementById('camera-frame')?.classList.add('talking');
@@ -1425,9 +1279,7 @@ function setHatIdle() {
   document.getElementById('camera-frame')?.classList.remove('talking');
 }
 
-// ══════════════════════════════════════════════════════
-//  VOICE SFX
-// ══════════════════════════════════════════════════════
+// VOICE SFX
 function startVoice() {
   if(!ASSETS.hatVoice) return;
   if(!voiceAudio){
@@ -1439,16 +1291,13 @@ function startVoice() {
 }
 function stopVoice() {
   if(!voiceAudio) return;
-  // Fade out smoothly
   const fade=setInterval(()=>{
     if(voiceAudio.volume>0.04){ voiceAudio.volume=Math.max(0,voiceAudio.volume-.05); }
     else { voiceAudio.pause(); voiceAudio.currentTime=0; voiceAudio.volume=0.32; clearInterval(fade); }
   },40);
 }
 
-// ══════════════════════════════════════════════════════
-//  BACKGROUND MUSIC
-// ══════════════════════════════════════════════════════
+// BACKGROUND MUSIC
 let bgMusicAudio = null;
 
 function startBgMusic() {
@@ -1458,10 +1307,8 @@ function startBgMusic() {
     bgMusicAudio.loop    = true;
     bgMusicAudio.volume  = 0;
   }
-  // Already playing — don't restart or re-fade
   if(!bgMusicAudio.paused) return;
   bgMusicAudio.play().catch(()=>{});
-  // Fade in gradually
   let vol = bgMusicAudio.volume;
   const fadeIn = setInterval(()=>{
     vol = Math.min(0.10, vol + 0.02);
@@ -1482,19 +1329,16 @@ function stopBgMusic() {
   }, 60);
 }
 
-// ══════════════════════════════════════════════════════
-//  LOOP ALTERNATE MUSIC — removed; bgMusic is the only track.
-//  These stubs keep any call sites from throwing errors.
-// ══════════════════════════════════════════════════════
-function startLoopMusic() { /* no-op: bgMusic keeps playing */ }
-function stopLoopMusic()  { /* no-op: bgMusic keeps playing */ }
+// LOOP MUSIC STUBS (bgMusic continues; these prevent call-site errors)
+function startLoopMusic() {}
+function stopLoopMusic()  {}
 
+// GLITCH SFX
 function playGlitchSfx() {
   if(!ASSETS.loopGlitchSfx) return;
   const sfx = new Audio(ASSETS.loopGlitchSfx);
   sfx.volume = 0.7;
 
-  // Pause bg music while the glitch SFX plays, then resume.
   if(bgMusicAudio && !bgMusicAudio.paused) {
     const savedVol = bgMusicAudio.volume;
     bgMusicAudio.pause();
@@ -1510,10 +1354,7 @@ function playGlitchSfx() {
   sfx.play().catch(()=>{});
 }
 
-// ══════════════════════════════════════════════════════
-//  CHOICE BOX SFX
-// ══════════════════════════════════════════════════════
-// Hover — reuse a single pooled instance to avoid overlap/delay
+// CHOICE BOX SFX
 let _hoverSfx = null;
 function playChoiceHover() {
   if(!ASSETS.choiceHover) return;
@@ -1528,15 +1369,12 @@ function playChoiceSelect() {
   sfx.play().catch(()=>{});
 }
 
-// ══════════════════════════════════════════════════════
-//  GAME FLOW
-// ══════════════════════════════════════════════════════
+// GAME FLOW
 function startGame() {
   currentQ=0; scores={G:0,R:0,H:0,S:0}; lastAnswer=null;
   showScreen('question-screen');
   initCamera();
   startBgMusic();
-  // Show dialogue box with slide-up
   setTimeout(()=>{ document.getElementById('dialogue-box').classList.add('visible'); }, 300);
   renderQuestion();
 }
@@ -1544,14 +1382,12 @@ function startGame() {
 function renderQuestion() {
   const q=QUESTIONS[currentQ];
 
-  // Update header
   document.getElementById('q-number').textContent=`Question ${currentQ+1} of ${QUESTIONS.length}`;
   const pct = ((currentQ+1)/QUESTIONS.length)*100;
   const fill = document.getElementById('q-progress');
   fill.style.width = `${pct}%`;
   fill.style.backgroundSize = `${10000/pct}% 100%`;
 
-  // Reset dialogue box
   const textEl  = document.getElementById('dialogue-text');
   const cursor  = document.getElementById('dialogue-cursor');
   const choices = document.getElementById('dialogue-choices');
@@ -1562,7 +1398,6 @@ function renderQuestion() {
   contEl.classList.remove('show');
   cursor.classList.remove('hidden');
 
-  // Pre-populate choices hidden — space is reserved, zero reflow later
   choices.innerHTML='';
   q.answers.forEach((ans,i)=>{
     const btn=document.createElement('button');
@@ -1577,12 +1412,10 @@ function renderQuestion() {
     choices.appendChild(btn);
   });
 
-  // Hat starts talking
   setHatTalking();
   startVoice();
   isTyping=true;
 
-  // Type question letter by letter
   let idx=0;
   clearInterval(typingTimer);
 
@@ -1593,7 +1426,6 @@ function renderQuestion() {
       idx++;
       typingTimer=setTimeout(typeNext, 42);
     } else {
-      // Typing complete
       finishTyping(q);
     }
   }
@@ -1607,14 +1439,9 @@ function finishTyping(q) {
 
   const cursor  = document.getElementById('dialogue-cursor');
   const choices = document.getElementById('dialogue-choices');
-  const contEl  = document.getElementById('dialogue-continue');
 
   cursor.classList.add('hidden');
-
-  // Reveal choices — no DOM change, just visibility
-  setTimeout(()=>{
-    choices.classList.add('show');
-  }, 180);
+  setTimeout(()=>{ choices.classList.add('show'); }, 180);
 }
 
 function selectAnswer(house, btn) {
@@ -1633,11 +1460,8 @@ function updateHUD() {
   ['G','R','H','S'].forEach(h=>document.getElementById(`hud-${h}`).textContent=`${h}: ${scores[h]}`);
 }
 
-// ══════════════════════════════════════════════════════
-//  SORTING CEREMONY
-// ══════════════════════════════════════════════════════
+// SORTING CEREMONY
 function beginSorting() {
-  // Hide dialogue box
   document.getElementById('dialogue-box').classList.remove('visible');
   clearTimeout(typingTimer);
   stopVoice();
@@ -1646,7 +1470,6 @@ function beginSorting() {
   const overlay = document.getElementById('sorting-overlay');
   const msg     = document.getElementById('sorting-msg');
   overlay.classList.add('active');
-  // Fade in
   requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('visible')));
 
   const msgs=[
@@ -1670,18 +1493,14 @@ function beginSorting() {
   },750);
 }
 
-// ══════════════════════════════════════════════════════
-//  RESULT LOGIC
-// ══════════════════════════════════════════════════════
+// RESULT LOGIC
 function determineResult() {
   stopCamera();
 
-  // Normal winner
   const sorted=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
   let winner=sorted[0][0];
   if(sorted.length>1 && sorted[0][1]===sorted[1][1]) winner=lastAnswer;
 
-  // LOOP easter egg
   const loopChance = (typeof ASSETS.loopChance==='number') ? ASSETS.loopChance : 0.95;
   if(Math.random() < loopChance) {
     showLOOP(winner);
@@ -1690,9 +1509,7 @@ function determineResult() {
   showResult(winner);
 }
 
-// ══════════════════════════════════════════════════════
-//  NORMAL RESULT SCREEN
-// ══════════════════════════════════════════════════════
+// NORMAL RESULT SCREEN
 function showResult(winner) {
   const house=HOUSES[winner];
   const ceremony=document.getElementById('result-ceremony');
@@ -1716,23 +1533,19 @@ function showResult(winner) {
   showScreen('result-screen');
 }
 
-// ══════════════════════════════════════════════════════
-//  LOOP EASTER EGG SEQUENCE
-// ══════════════════════════════════════════════════════
+// LOOP EASTER EGG
 function showLOOP(actualWinner) {
   const overlay=document.getElementById('loop-overlay');
   const content=document.getElementById('loop-content');
-  content.innerHTML=''; // clear
+  content.innerHTML='';
 
   overlay.classList.add('active');
-  document.body.classList.add('loop-active');  // hides parallax bg
+  document.body.classList.add('loop-active');
   playGlitchSfx();
 
-  // Flicker the screen first
   document.body.classList.add('do-flicker');
   setTimeout(()=>document.body.classList.remove('do-flicker'),800);
 
-  // Spawn glitch bars
   for(let i=0;i<18;i++){
     const bar=document.createElement('div');
     bar.className='glitch-bar';
@@ -1746,7 +1559,6 @@ function showLOOP(actualWinner) {
     setTimeout(()=>bar.remove(),1400);
   }
 
-  // Build content with staggered CSS animations
   const lines=[
     {cls:'loop-terminal-line', html:'> ANOMALY DETECTED IN SORTING MATRIX', delay:300},
     {cls:'loop-terminal-line', html:'> PATTERN: NON-STANDARD / RECURSIVE', delay:700},
@@ -1760,14 +1572,12 @@ function showLOOP(actualWinner) {
     content.appendChild(el);
   });
 
-  // Anomaly message
   const anomaly=document.createElement('div');
   anomaly.className='loop-anomaly';
   anomaly.textContent='"The Hat has detected something… unusual.\nYour mind does not fit any standard classification."';
   setTimeout(()=>{ anomaly.style.animation='fadeInUp .6s ease both'; anomaly.style.opacity='1'; },1700);
   content.appendChild(anomaly);
 
-  // Emblem — use asset if defined, otherwise the ∞ glyph
   const emblem=document.createElement('div');
   emblem.className='loop-emblem';
   const loopSrc=ASSETS['houseLOOP'];
@@ -1780,7 +1590,6 @@ function showLOOP(actualWinner) {
   }
   content.appendChild(emblem);
 
-  // House name
   const nameEl=document.createElement('div');
   nameEl.className='loop-house-name';
   nameEl.textContent='LOOP';
@@ -1796,7 +1605,6 @@ function showLOOP(actualWinner) {
   desc.textContent=HOUSES.LOOP.description;
   content.appendChild(desc);
 
-  // Resort button — this screen IS the result; no forwarding needed
   const btn=document.createElement('button');
   btn.className='loop-btn';
   btn.textContent='[ RESORT ]';
@@ -1811,7 +1619,6 @@ function showLOOP(actualWinner) {
   };
   content.appendChild(btn);
 
-  // Reveal elements with delays
   setTimeout(()=>{ emblem.classList.add('show'); },2600);
   setTimeout(()=>{ nameEl.classList.add('show'); },3100);
   setTimeout(()=>{ subtitle.classList.add('show'); },3600);
@@ -1819,7 +1626,7 @@ function showLOOP(actualWinner) {
   setTimeout(()=>{ btn.classList.add('show'); },4400);
 }
 
-// ── RESTART ────────────────────────────────────────────
+// RESTART
 function restartGame() {
   clearTimeout(typingTimer);
   stopVoice();
@@ -1830,7 +1637,7 @@ function restartGame() {
   showScreen('start-screen');
 }
 
-// ── KEYBOARD ───────────────────────────────────────────
+// KEYBOARD
 document.addEventListener('keydown', e=>{
   if(['1','2','3','4'].includes(e.key)){
     document.querySelector(`.answer-btn[data-key="${e.key}"]:not(:disabled)`)?.click();
@@ -1838,11 +1645,10 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Enter' && document.getElementById('start-screen').classList.contains('active')) startGame();
 });
 
-// ── INIT ───────────────────────────────────────────────
+// INIT
 initStarfield();
 applyAssets();
 
-// Start bg music on first user interaction (browsers block autoplay before that)
 function _startMusicOnce() {
   startBgMusic();
   document.removeEventListener('pointerdown', _startMusicOnce);
