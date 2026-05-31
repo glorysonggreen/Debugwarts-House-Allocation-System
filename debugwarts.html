@@ -54,7 +54,7 @@ const ASSETS = {
   houseRavenclaw:  "assets/ravenclaw-crest.png",
   houseHufflepuff: "assets/hufflepuff-crest.png",
   houseSlytherin:  "assets/slytherin-crest.png",  
-  houseLOOP:       null,
+  houseLOOP:       "assets/loop-crest.png",
 
   // ✦ Start screen decoration GIFs
   startLeft: null, startRight: null, startTop: null,
@@ -69,6 +69,15 @@ const ASSETS = {
 
   // 🎲 LOOP easter egg — probability 0–1 (0.08 = 8% chance)
   loopChance: 0.10,
+
+  // 🖱️ Choice box SFX
+  choiceHover:  "assets/choice-box-hover.mp3",
+  choiceSelect: "assets/choice-box-select.mp3",
+
+  // ⚡ LOOP easter egg SFX — plays once on glitch trigger
+  loopGlitchSfx: "assets/loop-glitch.mp3",           // e.g. "assets/loop-glitch.mp3"
+  // 🎵 LOOP alternate music — replaces bg-music through result screen
+  loopMusic:     null,           // e.g. "assets/loop-music.mp3"
 };
 </script>
 <!-- END ASSET CONFIG -->
@@ -90,7 +99,12 @@ const ASSETS = {
   --ravenclaw:       #1a6fa8;  --ravenclaw-glow:  #4db8ff;
   --hufflepuff:      #e6a817;  --hufflepuff-glow: #ffd966;
   --slytherin:       #1a7a4a;  --slytherin-glow:  #4dff9a;
-  --loop-green:      #00ff88;  --loop-glow:       rgba(0,255,136,.5);
+  --loop-primary:    #4db8ff;
+  --loop-deep:       #0a2a6e;
+  --loop-bright:     #a8d8ff;
+  --loop-glow:       rgba(77,184,255,.55);
+  --loop-dim:        rgba(77,184,255,.45);
+  --loop-very-dim:   rgba(168,216,255,.35);
   --text-main:       #e8dfc8;
   --text-dim:        #9d8f7a;
   --border-magic:    rgba(168,85,247,.35);
@@ -128,6 +142,30 @@ html, body {
   position:fixed; inset:0; z-index:1; pointer-events:none;
   background-size:cover; background-position:center; display:none;
 }
+
+/* ══════════════════════════════════════════
+   PARALLAX BACKGROUND
+   Slightly oversized so edge-panning has room.
+   Hidden during the LOOP easter egg via body.loop-active.
+══════════════════════════════════════════ */
+#parallax-bg {
+  position:fixed;
+  /* Small bleed so panning never reveals an edge */
+  top:-3%; left:-3%; width:106%; height:106%;
+  z-index:0; pointer-events:none;
+  background-image:none;          /* set by JS */
+  background-size:cover;
+  background-repeat:no-repeat;
+  background-position:50% 50%;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  display:none;                   /* shown only on matching screens */
+  /* smooth position transitions between ticks */
+  transition:background-position 1.2s cubic-bezier(.45,.05,.55,.95);
+  will-change:background-position;
+}
+/* Hide parallax whenever the LOOP easter egg is active */
+body.loop-active #parallax-bg { display:none !important; }
 
 /* ══════════════════════════════════════════
    PARTICLES
@@ -187,7 +225,13 @@ html, body {
   50%    { box-shadow:0 0 28px var(--crest-color),0 0 50px var(--crest-color); }
 }
 
-.title-wrap { animation:fadeDown 1s ease both .5s; margin-bottom:10px; }
+.title-wrap { animation:fadeDown 1s ease both .5s; margin-bottom:40px; }
+.title-img {
+  display:block; margin:0 auto;
+  width:clamp(480px, 90vw, 1000px); height:auto;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  filter:drop-shadow(0 0 24px rgba(168,85,247,.5));
+}
 .title-main {
   font-family:'Alagard', 'VT323', monospace;
   font-size:clamp(32px,7vw,60px); font-weight:900;
@@ -213,10 +257,66 @@ html, body {
   color:var(--gold); font-size:14px;
   background:var(--bg-deep); padding:0 8px;
 }
-.tagline {
-  font-family:'Alagard', 'VT323', monospace; font-style:normal; font-size:clamp(18px,4vw,22px);
-  color:var(--text-dim); margin-bottom:32px; max-width:380px; line-height:1.6;
-  animation:fadeDown 1s ease both 1s;
+/* ── Main Banner ── */
+.main-banner-wrap {
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:clamp(340px, 68vw, 660px); margin-bottom:6px;
+}
+.main-banner-img {
+  width:100%; height:auto; display:block;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  pointer-events:none; user-select:none;
+}
+.main-banner-text {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:6% 13% 8%;
+  text-align:center; gap:6px;
+}
+.banner-title {
+  font-family:'Alagard','VT323',monospace;
+  font-size:clamp(14px,2vw,19px); letter-spacing:5px; text-transform:uppercase;
+  color:#8b5a1a;
+  text-shadow:0 1px 0 rgba(255,240,180,.5);
+}
+.banner-body {
+  font-family:'Alagard','VT323',monospace;
+  font-size:clamp(12px,1.6vw,15px); line-height:1.65;
+  color:#4a2e0a;
+  text-shadow:0 1px 0 rgba(255,240,200,.3);
+}
+.banner-body em { font-style:italic; color:#7a3a05; font-weight:bold; }
+
+@keyframes btnPress {
+  0%   { transform:scale(1); filter:brightness(1); }
+  30%  { transform:scale(.93) translateY(3px); filter:brightness(.85); }
+  70%  { transform:scale(1.04) translateY(-2px); filter:brightness(1.18) drop-shadow(0 0 14px rgba(240,192,64,.7)); }
+  100% { transform:scale(1); filter:brightness(1); }
+}
+/* ── Start Button ── */
+.start-btn-wrap {
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:clamp(200px, 30vw, 320px); cursor:pointer;
+  transition:transform .2s, filter .2s;
+}
+.start-btn-wrap:hover  { transform:translateY(-3px) scale(1.05); filter:brightness(1.12) drop-shadow(0 0 10px rgba(240,192,64,.55)); }
+.start-btn-wrap:active { transform:scale(.93) translateY(3px); filter:brightness(.85); }
+.start-btn-wrap.btn-clicked { animation:btnPress .35s ease forwards; }
+.start-btn-img {
+  width:100%; height:auto; display:block;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  pointer-events:none; user-select:none;
+}
+.start-btn-text {
+  position:absolute; inset:0; width:100%; height:100%;
+  background:transparent; border:none; cursor:pointer;
+  font-family:'Alagard','VT323',monospace;
+  font-size:clamp(13px,2vw,17px); letter-spacing:3px; text-transform:uppercase;
+  color:#c8a030;
+  text-shadow:0 1px 2px rgba(0,0,0,.4);
+  display:flex; align-items:center; justify-content:center;
+  padding:0;
+  -webkit-tap-highlight-color:transparent;
 }
 
 /* ══════════════════════════════════════════
@@ -680,7 +780,7 @@ html, body {
 ══════════════════════════════════════════ */
 #loop-overlay {
   position:fixed; inset:0; z-index:200;
-  background:#000;
+  background:radial-gradient(ellipse at 40% 35%, #0d1f5c 0%, #050d2e 55%, #000510 100%);
   display:none; flex-direction:column;
   align-items:center; justify-content:center; overflow:hidden;
 }
@@ -689,7 +789,7 @@ html, body {
 /* Scanlines */
 #loop-overlay::before {
   content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,136,.03) 2px,rgba(0,255,136,.03) 4px);
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(77,184,255,.025) 2px,rgba(77,184,255,.025) 4px);
   animation:scanroll 4s linear infinite;
 }
 @keyframes scanroll { to { background-position:0 80px; } }
@@ -706,41 +806,54 @@ html, body {
 .loop-terminal-line {
   font-family:'Alagard','VT323','Courier New',monospace;
   font-size:clamp(12px,2.5vw,15px);
-  color:var(--loop-green); letter-spacing:2px;
+  color:var(--loop-primary); letter-spacing:2px;
   line-height:1.6; margin-bottom:6px;
-  opacity:0; text-shadow:0 0 8px var(--loop-green);
+  opacity:0; text-shadow:0 0 10px var(--loop-glow), 0 0 20px rgba(77,184,255,.3);
   white-space:nowrap; overflow:hidden;
 }
 .loop-anomaly {
   font-family:'Alagard','VT323','Courier New',monospace;
   font-size:clamp(13px,3vw,17px);
-  color:rgba(0,255,136,.5); letter-spacing:1px; line-height:1.8;
+  color:var(--loop-dim); letter-spacing:1px; line-height:1.8;
   margin:16px 0 20px; opacity:0;
 }
 .loop-house-name {
   font-family:'Alagard','VT323','Courier New',monospace;
   font-size:clamp(52px,14vw,96px); font-weight:900;
-  color:var(--loop-green); letter-spacing:10px;
-  text-shadow:0 0 20px var(--loop-green),0 0 60px var(--loop-green),0 0 100px rgba(0,255,136,.35);
+  color:var(--loop-primary); letter-spacing:10px;
+  text-shadow:0 0 20px var(--loop-primary),0 0 60px var(--loop-glow),0 0 100px rgba(77,184,255,.25), 0 2px 0 rgba(255,255,255,.15);
   opacity:0; animation:glitchName 4.5s ease-in-out infinite; animation-play-state:paused;
 }
 .loop-house-name.show { opacity:1; animation-play-state:running; }
 @keyframes glitchName {
-  0%,88%,100%{ text-shadow:0 0 20px var(--loop-green),0 0 60px var(--loop-green); transform:none; }
-  90%  { transform:translate(-4px,0) skewX(-6deg); text-shadow:4px 0 0 #ff0044,-4px 0 0 #00ffff; }
-  92%  { transform:translate(4px,0); text-shadow:-4px 0 0 #ff0044,4px 0 0 #00ffff; }
+  0%,88%,100%{ text-shadow:0 0 20px var(--loop-primary),0 0 60px var(--loop-glow); transform:none; }
+  90%  { transform:translate(-4px,0) skewX(-6deg); text-shadow:4px 0 0 #ff4488,-4px 0 0 #00eeff; }
+  92%  { transform:translate(4px,0); text-shadow:-4px 0 0 #ff4488,4px 0 0 #00eeff; }
   94%  { transform:translate(-2px,1px) skewX(2deg); }
   96%  { transform:translate(1px,-2px); }
 }
 .loop-subtitle {
   font-family:'Alagard','VT323','Courier New',monospace;
-  font-size:clamp(11px,2.5vw,14px); color:rgba(0,255,136,.65);
+  font-size:clamp(11px,2.5vw,14px); color:var(--loop-very-dim);
   letter-spacing:4px; margin:6px 0 20px; opacity:0;
 }
 .loop-subtitle.show { opacity:1; }
+.loop-emblem {
+  font-family:'Alagard','VT323','Courier New',monospace;
+  font-size:64px; line-height:1;
+  color:var(--loop-primary);
+  text-shadow:0 0 20px var(--loop-primary),0 0 50px var(--loop-glow);
+  margin:6px auto 14px;
+  opacity:0;
+  transition:opacity .6s ease;
+}
+.loop-emblem img { width:220px; height:auto; display:block; margin:0 auto;
+  filter:drop-shadow(0 0 12px var(--loop-primary)) drop-shadow(0 0 30px var(--loop-glow));
+  image-rendering:pixelated; image-rendering:crisp-edges; }
+.loop-emblem.show { opacity:1; }
 .loop-desc {
   font-family:'Alagard','VT323','Courier New',monospace;
-  font-size:clamp(13px,2.5vw,16px); color:rgba(0,255,136,.5);
+  font-size:clamp(13px,2.5vw,16px); color:var(--loop-very-dim);
   line-height:1.85; letter-spacing:.5px; margin-bottom:28px; opacity:0;
 }
 .loop-desc.show { opacity:1; }
@@ -750,30 +863,45 @@ html, body {
   display:inline-flex; align-items:center; justify-content:center;
   padding:12px 32px; font-family:'Alagard','VT323','Courier New',monospace;
   font-size:clamp(14px,3vw,17px); letter-spacing:3px;
-  color:#000; background:var(--loop-green);
-  border:none; border-radius:3px; cursor:pointer;
-  box-shadow:0 0 20px var(--loop-green),0 0 40px rgba(0,255,136,.3);
+  color:#fff;
+  background:linear-gradient(135deg, #0d4fd4 0%, #1a6fa8 40%, #4db8ff 100%);
+  border:1px solid rgba(77,184,255,.5); border-radius:3px; cursor:pointer;
+  box-shadow:0 0 20px var(--loop-glow), 0 0 40px rgba(77,184,255,.2), inset 0 1px 0 rgba(255,255,255,.15);
   transition:transform .15s, box-shadow .15s;
   opacity:0;
   -webkit-tap-highlight-color:transparent;
 }
 .loop-btn.show { opacity:1; }
-.loop-btn:hover  { transform:scale(1.04); box-shadow:0 0 30px var(--loop-green),0 0 60px rgba(0,255,136,.4); }
+.loop-btn:hover  { transform:scale(1.04); box-shadow:0 0 30px var(--loop-glow),0 0 60px rgba(77,184,255,.35); }
 .loop-btn:active { transform:scale(.97); }
 
 /* Glitch bar particles */
 .glitch-bar {
   position:absolute; pointer-events:none; z-index:5;
-  background:var(--loop-green); height:2px; opacity:0;
+  background:linear-gradient(90deg, var(--loop-primary), rgba(77,184,255,.4)); height:2px; opacity:0;
   animation:glitchBar var(--gd,.4s) ease-out forwards;
   animation-delay:var(--gde,0s);
 }
 @keyframes glitchBar {
-  0%  { opacity:.8; transform:scaleX(1); }
+  0%  { opacity:.9; transform:scaleX(1); }
   100%{ opacity:0; transform:scaleX(.1) translateX(var(--gdx,40px)); }
 }
 
-/* Screen-flicker utility */
+/* Grid perspective floor — echoes the reference image */
+.loop-grid-bg {
+  position:absolute; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(77,184,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77,184,255,.07) 1px, transparent 1px);
+  background-size:40px 40px;
+  mask-image:radial-gradient(ellipse 80% 60% at 50% 60%, white 30%, transparent 80%);
+  -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 60%, white 30%, transparent 80%);
+  animation:gridPulse 6s ease-in-out infinite;
+}
+@keyframes gridPulse {
+  0%,100%{ opacity:.6; }
+  50%    { opacity:1; }
+}
 .do-flicker { animation:screenFlicker .7s ease forwards; }
 @keyframes screenFlicker {
   0%  { filter:none; }
@@ -839,6 +967,8 @@ html, body {
 
 <!-- Starfield -->
 <div id="starfield"></div>
+<!-- Parallax background (Main Menu · Q&A · Result; NOT during LOOP) -->
+<div id="parallax-bg"></div>
 <!-- BG layers -->
 <div class="bg-layer" id="bg-start"></div>
 <div class="bg-layer" id="bg-question"></div>
@@ -860,6 +990,7 @@ html, body {
      LOOP HOUSE EASTER EGG OVERLAY
 ══════════════════════════════════════════ -->
 <div id="loop-overlay">
+  <div class="loop-grid-bg"></div>
   <div class="loop-content" id="loop-content">
     <!-- Injected by JS for precise timing -->
   </div>
@@ -874,15 +1005,32 @@ html, body {
   <img class="start-deco-top"   id="deco-top"   src="" alt="">
 
   <div class="title-wrap">
-    <div class="title-main">Debugwarts</div>
-    <div class="title-sub">House Allocation System</div>
+    <img class="title-img" src="assets/debugwarts-title.png" alt="Debugwarts">
   </div>
-  <div class="divider-magic"></div>
-  <p class="tagline">
-    The ancient hat has processed a thousand lines of code,<br>
-    and now it shall read <em>your</em> mind…
-  </p>
-  <button class="btn-magic" onclick="startGame()">Begin Allocation</button>
+
+  <!-- Main Banner -->
+  <div class="main-banner-wrap" style="animation:fadeDown 1s ease both .8s;">
+    <img class="main-banner-img" src="assets/main-banner.png" alt="" onerror="this.src='/mnt/user-data/uploads/main-banner.png'">
+    <div class="main-banner-text">
+      <div class="banner-title">House Allocation System</div>
+      <p class="banner-body">The ancient hat has processed a thousand lines of code,<br>and now it shall read <em>your</em> mind…</p>
+    </div>
+  </div>
+
+  <!-- Start Button -->
+  <div class="start-btn-wrap" id="start-btn-wrap" style="animation:fadeDown 1s ease both 1.1s;">
+    <img class="start-btn-img" src="assets/start-button.png" alt="" onerror="this.src='/mnt/user-data/uploads/start-button.png'">
+    <button class="start-btn-text"
+      onmouseenter="playChoiceHover()"
+      onclick="
+        playChoiceSelect();
+        const w=document.getElementById('start-btn-wrap');
+        w.classList.remove('btn-clicked');
+        void w.offsetWidth;
+        w.classList.add('btn-clicked');
+        startGame();
+      ">Begin Allocation</button>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -1012,7 +1160,7 @@ const HOUSES = {
     description:'Cunning, resourceful, and three steps ahead. You do not fight bugs head-on — you outmaneuver them. Where others see obstacles, you see elegant shortcuts. Ambition and cleverness are your greatest weapons.',
   },
   LOOP: {
-    name:'LOOP', emoji:'inf', color:'#00ff88', glow:'rgba(0,255,136,.5)', assetKey:'houseLOOP',
+    name:'LOOP', emoji:'inf', color:'#4db8ff', glow:'rgba(77,184,255,.55)', assetKey:'houseLOOP',
     description:'An anomaly. The Hat has never seen anything quite like you. Your mind recurses where others iterate, finds patterns in chaos, and loops back when all paths seem closed. You do not belong to a house — the house belongs to you.',
   },
 };
@@ -1155,6 +1303,10 @@ function applyAssets() {
 
   // Particles
   spawnParticles();
+
+  // Parallax background — shared across Menu, Q&A and Result screens
+  initParallax('assets/main-background.png');
+  showParallax('start-screen'); // show on initial load
 }
 
 // ── PARTICLES ──────────────────────────────────────────
@@ -1180,7 +1332,39 @@ function spawnParticles() {
   }
 }
 
-// ── STARFIELD ──────────────────────────────────────────
+// ── PARALLAX BACKGROUND ────────────────────────────────
+// The parallax element is separate from the per-screen bg-layer divs.
+// It stays visible across Main Menu, Q&A and Result screens,
+// and is hidden while the LOOP overlay is shown.
+
+const PARALLAX_SCREENS = new Set(['start-screen','question-screen','result-screen']);
+let _parallaxTick = null;   // setInterval handle
+
+function initParallax(src) {
+  const el = document.getElementById('parallax-bg');
+  if (!el || !src) return;
+  el.style.backgroundImage = `url('${src}')`;
+
+  // Slow drift: pick a new random target position every second.
+  // The CSS transition smoothly interpolates between ticks.
+  const range = 3; // percent — matches the 3% bleed above
+  function tick() {
+    const x = 50 + (Math.random() * 2 - 1) * range;
+    const y = 50 + (Math.random() * 2 - 1) * range;
+    el.style.backgroundPosition = `${x.toFixed(2)}% ${y.toFixed(2)}%`;
+  }
+  tick(); // set initial position immediately
+  if (_parallaxTick) clearInterval(_parallaxTick);
+  _parallaxTick = setInterval(tick, 1000);
+}
+
+function showParallax(screenId) {
+  const el = document.getElementById('parallax-bg');
+  if (!el || !el.style.backgroundImage || el.style.backgroundImage === 'none') return;
+  el.style.display = PARALLAX_SCREENS.has(screenId) ? 'block' : 'none';
+}
+
+
 function initStarfield() {
   const sf=document.getElementById('starfield');
   for(let i=0;i<130;i++){
@@ -1221,6 +1405,7 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   switchBgLayer(id);
+  showParallax(id);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1273,13 +1458,15 @@ function startBgMusic() {
     bgMusicAudio.loop    = true;
     bgMusicAudio.volume  = 0;
   }
+  // Already playing — don't restart or re-fade
+  if(!bgMusicAudio.paused) return;
   bgMusicAudio.play().catch(()=>{});
   // Fade in gradually
-  let vol = 0;
+  let vol = bgMusicAudio.volume;
   const fadeIn = setInterval(()=>{
-    vol = Math.min(0.38, vol + 0.02);
+    vol = Math.min(0.10, vol + 0.02);
     bgMusicAudio.volume = vol;
-    if(vol >= 0.38) clearInterval(fadeIn);
+    if(vol >= 0.15) clearInterval(fadeIn);
   }, 60);
 }
 
@@ -1293,6 +1480,52 @@ function stopBgMusic() {
       clearInterval(fadeOut);
     }
   }, 60);
+}
+
+// ══════════════════════════════════════════════════════
+//  LOOP ALTERNATE MUSIC — removed; bgMusic is the only track.
+//  These stubs keep any call sites from throwing errors.
+// ══════════════════════════════════════════════════════
+function startLoopMusic() { /* no-op: bgMusic keeps playing */ }
+function stopLoopMusic()  { /* no-op: bgMusic keeps playing */ }
+
+function playGlitchSfx() {
+  if(!ASSETS.loopGlitchSfx) return;
+  const sfx = new Audio(ASSETS.loopGlitchSfx);
+  sfx.volume = 0.7;
+
+  // Pause bg music while the glitch SFX plays, then resume.
+  if(bgMusicAudio && !bgMusicAudio.paused) {
+    const savedVol = bgMusicAudio.volume;
+    bgMusicAudio.pause();
+
+    sfx.addEventListener('ended', ()=>{
+      if(bgMusicAudio) {
+        bgMusicAudio.volume = savedVol;
+        bgMusicAudio.play().catch(()=>{});
+      }
+    }, { once: true });
+  }
+
+  sfx.play().catch(()=>{});
+}
+
+// ══════════════════════════════════════════════════════
+//  CHOICE BOX SFX
+// ══════════════════════════════════════════════════════
+// Hover — reuse a single pooled instance to avoid overlap/delay
+let _hoverSfx = null;
+function playChoiceHover() {
+  if(!ASSETS.choiceHover) return;
+  if(!_hoverSfx) { _hoverSfx = new Audio(ASSETS.choiceHover); _hoverSfx.volume = 0.45; }
+  _hoverSfx.currentTime = 0;
+  _hoverSfx.play().catch(()=>{});
+}
+function playChoiceSelect() {
+  if(!ASSETS.choiceSelect) return;
+  const sfx = new Audio(ASSETS.choiceSelect);
+  sfx.volume = 0.6;
+  sfx.play().catch(()=>{});
 }
 
 // ══════════════════════════════════════════════════════
@@ -1339,6 +1572,7 @@ function renderQuestion() {
       <span class="ans-label">[${ans.label}]</span>
       <span class="ans-text">${ans.text}</span>
     `;
+    btn.onmouseenter = ()=>{ if(!btn.disabled) playChoiceHover(); };
     btn.onclick=()=>selectAnswer(ans.house,btn);
     choices.appendChild(btn);
   });
@@ -1384,6 +1618,7 @@ function finishTyping(q) {
 }
 
 function selectAnswer(house, btn) {
+  playChoiceSelect();
   document.querySelectorAll('.answer-btn').forEach(b=>b.disabled=true);
   btn.classList.add(`selected-${house}`);
   lastAnswer=house; scores[house]++;
@@ -1490,6 +1725,8 @@ function showLOOP(actualWinner) {
   content.innerHTML=''; // clear
 
   overlay.classList.add('active');
+  document.body.classList.add('loop-active');  // hides parallax bg
+  playGlitchSfx();
 
   // Flicker the screen first
   document.body.classList.add('do-flicker');
@@ -1530,6 +1767,19 @@ function showLOOP(actualWinner) {
   setTimeout(()=>{ anomaly.style.animation='fadeInUp .6s ease both'; anomaly.style.opacity='1'; },1700);
   content.appendChild(anomaly);
 
+  // Emblem — use asset if defined, otherwise the ∞ glyph
+  const emblem=document.createElement('div');
+  emblem.className='loop-emblem';
+  const loopSrc=ASSETS['houseLOOP'];
+  if(loopSrc){
+    const img=document.createElement('img');
+    img.src=loopSrc; img.alt='LOOP emblem';
+    emblem.appendChild(img);
+  } else {
+    emblem.textContent='∞';
+  }
+  content.appendChild(emblem);
+
   // House name
   const nameEl=document.createElement('div');
   nameEl.className='loop-house-name';
@@ -1546,35 +1796,27 @@ function showLOOP(actualWinner) {
   desc.textContent=HOUSES.LOOP.description;
   content.appendChild(desc);
 
-  // Continue button
+  // Resort button — this screen IS the result; no forwarding needed
   const btn=document.createElement('button');
   btn.className='loop-btn';
-  btn.textContent='[ CONTINUE → ]';
+  btn.textContent='[ RESORT ]';
+  btn.addEventListener('mouseenter', ()=>playChoiceHover());
+  btn.addEventListener('touchstart', ()=>playChoiceHover(), {passive:true});
   btn.onclick=()=>{
+    playChoiceSelect();
     overlay.classList.remove('active');
-    // Show normal result for actual winner in background after LOOP
-    showResult(actualWinner === 'LOOP' ? 'G' : actualWinner);
-    // Override displayed result with LOOP data
-    setTimeout(()=>{
-      document.getElementById('result-name').textContent='LOOP';
-      document.getElementById('result-name').style.color='#00ff88';
-      document.getElementById('result-name').style.textShadow='0 0 30px rgba(0,255,136,.5),0 0 60px rgba(0,255,136,.5)';
-      document.getElementById('result-desc').textContent=HOUSES.LOOP.description;
-      document.getElementById('badge-emoji').textContent='INF';
-      document.getElementById('badge-emoji').style.display='block';
-      document.getElementById('badge-gif').style.display='none';
-      const ceremony=document.getElementById('result-ceremony');
-      ceremony.style.setProperty('--result-color','#00ff88');
-      ceremony.style.setProperty('--result-glow','rgba(0,255,136,.5)');
-    },50);
+    document.body.classList.remove('loop-active');
+    stopLoopMusic();
+    restartGame();
   };
   content.appendChild(btn);
 
   // Reveal elements with delays
-  setTimeout(()=>{ nameEl.classList.add('show'); },2600);
-  setTimeout(()=>{ subtitle.classList.add('show'); },3200);
-  setTimeout(()=>{ desc.classList.add('show'); },3700);
-  setTimeout(()=>{ btn.classList.add('show'); },4300);
+  setTimeout(()=>{ emblem.classList.add('show'); },2600);
+  setTimeout(()=>{ nameEl.classList.add('show'); },3100);
+  setTimeout(()=>{ subtitle.classList.add('show'); },3600);
+  setTimeout(()=>{ desc.classList.add('show'); },3900);
+  setTimeout(()=>{ btn.classList.add('show'); },4400);
 }
 
 // ── RESTART ────────────────────────────────────────────
@@ -1582,6 +1824,7 @@ function restartGame() {
   clearTimeout(typingTimer);
   stopVoice();
   stopBgMusic();
+  stopLoopMusic();
   isTyping=false;
   document.getElementById('dialogue-box').classList.remove('visible');
   showScreen('start-screen');
@@ -1598,6 +1841,15 @@ document.addEventListener('keydown', e=>{
 // ── INIT ───────────────────────────────────────────────
 initStarfield();
 applyAssets();
+
+// Start bg music on first user interaction (browsers block autoplay before that)
+function _startMusicOnce() {
+  startBgMusic();
+  document.removeEventListener('pointerdown', _startMusicOnce);
+  document.removeEventListener('keydown',     _startMusicOnce);
+}
+document.addEventListener('pointerdown', _startMusicOnce);
+document.addEventListener('keydown',     _startMusicOnce);
 </script>
 </body>
 </html>
