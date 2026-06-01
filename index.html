@@ -1419,7 +1419,7 @@ function renderQuestion() {
   let idx=0;
   clearInterval(typingTimer);
 
-  function Next() {
+  function typeNext() {
     if(!isTyping) return;
     if(idx < q.text.length) {
       textEl.textContent += q.text[idx];
