@@ -1419,12 +1419,12 @@ function renderQuestion() {
   let idx=0;
   clearInterval(typingTimer);
 
-  function typeNext() {
+  function Next() {
     if(!isTyping) return;
     if(idx < q.text.length) {
       textEl.textContent += q.text[idx];
       idx++;
-      typingTimer=setTimeout(typeNext, 35);
+      typingTimer=setTimeout(typeNext, 30);
     } else {
       finishTyping(q);
     }
